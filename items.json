@@ -3,12 +3,44 @@
     "id": "Canada",
     "name": "Canada",
     "image_url": "https://flagcdn.com/w640/ca.png",
-    "weight": 10
+    "weight": 10,
+    "sell_value": 100,
+    "rarity_sell_values": {
+      "silver": 200,
+      "gold": 400,
+      "emerald": 600,
+      "diamond": 800,
+      "obsidian": 1000
+    },
+    "rarity_images": {
+      "normal": "https://flagcdn.com/w640/ca.png",
+      "silver": "https://flagcdn.com/w640/ca.png",
+      "gold": "https://flagcdn.com/w640/ca.png",
+      "emerald": "https://flagcdn.com/w640/ca.png",
+      "diamond": "https://flagcdn.com/w640/ca.png",
+      "obsidian": "https://flagcdn.com/w640/ca.png"
+    }
   },
   {
     "id": "Japan",
     "name": "Japan",
     "image_url": "https://flagcdn.com/w640/jp.png",
-    "weight": 5
+    "weight": 5,
+    "sell_value": 100,
+    "rarity_sell_values": {
+      "silver": 200,
+      "gold": 400,
+      "emerald": 600,
+      "diamond": 800,
+      "obsidian": 1000
+    },
+    "rarity_images": {
+      "normal": "https://flagcdn.com/w640/jp.png",
+      "silver": "https://flagcdn.com/w640/jp.png",
+      "gold": "https://flagcdn.com/w640/jp.png",
+      "emerald": "https://flagcdn.com/w640/jp.png",
+      "diamond": "https://flagcdn.com/w640/jp.png",
+      "obsidian": "https://flagcdn.com/w640/jp.png"
+    }
   }
 ]

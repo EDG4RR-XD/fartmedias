@@ -1,90 +1,115 @@
-# Image collector bot
+# Image collector bot with chudlets
 
-Images appear in the configured channel every 10–20 minutes. The first human player to send the message Claim in that channel gets the collectible. claim and CLAIM work too. Images expire after five minutes. Collections, card IDs and accepted trades save to SQLite. Collections are per server. Duplicate copies of an item can be collected.
-
-## Updating your existing GitHub/Railway bot
+## Update your existing bot
 
 1. Extract this ZIP.
-2. Open your existing GitHub repository, choose Add file > Upload files.
-3. Upload bot.py, items.json, Dockerfile, requirements.txt and README.md from inside the extracted folder. Keep these files at the repository root. This replaces the previous files with matching names. Do not upload .env or your data directory.
-4. Click Commit changes.
-5. Go to https://discord.com/developers/applications, select your app, open Bot, scroll to Privileged Gateway Intents, enable Message Content Intent and save. This version reads the word Claim from chat. If Discord asks you to apply for access, follow its portal instructions.
-6. In Railway, keep DISCORD_TOKEN as your existing token, DATA_DIR=/data, and your existing volume mounted at /data. Keep any TEST_GUILD_ID variable you already set.
-7. Wait for GitHub autodeploy, or deploy the latest commit manually. Look at deployment logs for a successful Discord connection. Only run one replica and stop any local copy.
-8. Run /setup with your chosen channel if needed. Existing saved settings are reused. Use /spawn to test when no active image is waiting.
-9. Type Claim in the same channel as the spawned image. /collection lists your card IDs. /view card_id:1 displays card #1. /trade still works.
+2. In your existing GitHub repository choose Add file > Upload files.
+3. Replace bot.py, Dockerfile, requirements.txt and README.md, and add economy.py. Keep these at the repository root. test_bot.py is optional to upload.
+4. KEEP YOUR CUSTOM items.json. Add the new fields shown below to your existing entries. The items.json inside this ZIP is only a two-card demo. Replacing your customized file with it would change your spawn pool.
+5. Commit changes. In Railway open your bot service, press Ctrl+K (Cmd+K on Mac), and choose Deploy Latest Commit if autodeploy has not started.
+6. Keep your existing DISCORD_TOKEN, DATA_DIR=/data, TEST_GUILD_ID if set, and volume mounted at /data. Message Content Intent must remain enabled in the Discord Developer Portal. Run only one bot replica.
+7. Check deployment logs. Old cards are automatically migrated as normal rarity. The flags.db filename stays unchanged. Existing collections and trades remain compatible; pending offers from before restart expire.
 
-The existing data/flags.db filename and original database columns are deliberately retained for compatibility. Keep your volume and DATA_DIR unchanged. Old flag cards stay in collections; old items without configured images display a legacy notice in /view. Old active spawns remain claimable until they expire. Removing an item from items.json after it has been loaded keeps its stored definition for old cards.
+No chudlets are paid retrospectively for pre-update cards. Existing holdings seed first-card history and previous five-copy milestones. Your next spawn is scheduled no later than five minutes after this update, unless an older active spawn is still waiting to expire.
 
-## Add your own claimable images
+## Commands
 
-The supplied items.json contains two demo image entries, Canada and Japan. Replace them with your own items if desired.
+/list [page]: shows all known base cards. Owned cards appear in the upper row/section, missing cards below it. Each owned card shows counts for all six rarities. Use page:2, page:3 etc. when needed. Each page shows up to three owned and three missing cards.
+/collection [member] [page]: individual card IDs with rarity labels.
+/view card_id: displays that card's rarity-specific image.
+/balance: your chudlets.
+/sell card_id: quotes that card's price and asks for confirmation. Selling removes that copy and credits chudlets. It does not transfer the card to another player.
+/trade member give_id want_id: offer a one-for-one exchange. The other player must accept. Both get 100 chudlets on successful completion.
+/shop: menu containing FREE YCH (5000), FREE ON BASE CUSTOM (10000), FREE OFF BASE CUSTOM (30000). Selecting a reward immediately buys one copy if you can afford it.
+/inventory [page]: purchased items and their IDs, including redeemed entries.
+/use-item item_id: consumes one purchased item and posts a receipt asking the player to ping @jonathan.sims with their claim. Use the purchase ID from /inventory, not a collectible card ID.
+/receipt item_id: redisplays your saved redemption receipt without consuming another item.
+/setup channel: choose the spawn channel, Manage Server required.
+/spawn: manually test one spawn, Manage Server required; refuses while another is active.
 
-1. Upload an image to an image host that provides a public, direct HTTPS image link. For example, upload your file to File Garden and copy the file URL. Opening that URL in a private browser window should display the image itself without requiring login. A webpage containing an image is not the same as a direct image link. Discord attachment URLs can expire, so use a persistent image host.
-2. In GitHub click items.json, then the pencil button to edit it.
-3. Each object inside the outer square brackets defines one item. Example:
+The receipt stores a unique purchase number, server and owner. It does not automatically fulfill artwork or send a DM. The @jonathan.sims text prompts the player to select/ping that account themselves; no account ID is guessed. If posting a redeemed receipt fails, use /receipt to recover it.
+
+## Claiming and chudlet rewards
+
+Send the entire message Claim in the spawn channel. claim and CLAIM also work. First valid claim wins. Bots and webhooks cannot collect. Each spawn lasts five minutes. A replacement appears every five minutes, with a five-second scheduling check and possible network delays. Offline time is not backfilled.
+
+- First discovery of a base card: 1000 chudlets. A new rarity of an already discovered base card is a duplicate for this particular bonus. Selling or trading it away does not reset discovery history. Acquiring a card through trade records it as discovered but awards only the trade reward, not the first-claim reward.
+- Successful trade: 100 chudlets to each participant. Failed, expired or replayed acceptances do not pay. Repeated legitimate trades each pay, as configured by this rule.
+- Five-copy milestone: 1000 when a claim brings current holdings of that base card to 5, 10, 15 etc. All rarities count toward the same total. Each milestone pays at most once per player and base card. Selling/trading copies away and returning to a previously paid milestone does not pay again. Trades never trigger this reward. If a trade brings you to five and the next claim is your sixth, no five-copy payout occurs.
+- Full rarity set: 5000 once per player and base card when they own normal, silver, gold, emerald, diamond and obsidian together. A claim or incoming trade can complete the set. Selling and rebuilding the set does not repeat the payout.
+
+Rewards can stack. All balances, inventories, history and collections are per server. Selling cards never removes earned chudlets or prior discovery records. Keep volume backups enabled on your host.
+
+## Rarity rolls
+
+A base card is chosen using its weight. A separate rarity roll then chooses normal 79%, silver 10%, gold 5%, emerald 3%, diamond 2%, obsidian 1%. These are mutually exclusive outcomes totaling 100%. Variants share one base card ID but each collected copy stores its own rarity.
+
+## Customize cards, sale prices and images
+
+Edit items.json in GitHub using the pencil button. Keep your existing IDs unchanged after people collect them. Here is a complete example for ONE card; replace every example URL with your actual direct HTTPS image link:
 
 ```json
 [
   {
     "id": "moon_cat",
     "name": "Moon Cat",
-    "image_url": "https://your-image-host.example/moon-cat.png",
-    "weight": 10
-  },
-  {
-    "id": "sun_dog",
-    "name": "Sun Dog",
-    "image_url": "https://your-image-host.example/sun-dog.png",
-    "weight": 2
+    "image_url": "https://your-image-host.example/moon-cat-normal.png",
+    "weight": 10,
+    "sell_value": 100,
+    "rarity_sell_values": {
+      "silver": 200,
+      "gold": 400,
+      "emerald": 600,
+      "diamond": 800,
+      "obsidian": 1000
+    },
+    "rarity_images": {
+      "normal": "https://your-image-host.example/moon-cat-normal.png",
+      "silver": "https://your-image-host.example/moon-cat-silver.png",
+      "gold": "https://your-image-host.example/moon-cat-gold.png",
+      "emerald": "https://your-image-host.example/moon-cat-emerald.png",
+      "diamond": "https://your-image-host.example/moon-cat-diamond.png",
+      "obsidian": "https://your-image-host.example/moon-cat-obsidian.png"
+    }
   }
 ]
 ```
 
-Replace the example URLs with your actual image links before deploying.
+id is permanent; name is displayed. image_url is the default/normal image. Upload images to a host such as File Garden and use URLs that display the image itself without a login. Discord attachment URLs can expire.
 
-- id: unique permanent internal identifier. Use something like moon_cat. Keep this unchanged after anyone claims it. Existing cards reference this ID.
-- name: display name. You may rename it; existing cards update to the new display name too.
-- image_url: public direct HTTPS image link. You may replace this; existing cards then display the replacement image too.
-- weight: relative spawn likelihood. A weight of 10 appears about five times as often as a weight of 2. With only those two items, their probabilities are 10/12 and 2/12. Set weight to 0 to retire an item while preserving its definition.
+weight controls base-card spawn frequency relative to other entries. Set weight to 0 to retire a card. Its old copies remain viewable; /list includes retired cards too. At least one item must have a positive weight.
 
-4. To add a third item, put a comma after the second item's closing brace, then add another object before the final ]. Do not put a comma after the final object. Use double quotes, with no comments.
-5. Click Commit changes. Railway must redeploy/restart for the edited item list to load. Existing collections remain in your volume.
-6. Test using /spawn. Selection is random, so a newly added item may take several spawns to appear. To test only one item, temporarily set the others' weights to 0, then restore them.
+sell_value is your base sale price in chudlets, used for normal cards and rarities without a specific override. rarity_sell_values optionally overrides it per rarity. Prices are nonnegative integers. Example: sell_value:250 and a gold override of 1000 means a normal copy sells for 250 and a gold copy for 1000. Edit these values to choose your own prices. Old entries without prices default to 100.
 
-You can have one item or many. At least one must have weight above 0. The bot checks required fields, duplicate IDs and invalid weights on startup. It cannot guarantee that an external host will keep serving your image.
+rarity_images lets you provide six different images for the same card. If you omit a rarity's image, it uses image_url until you add artwork. The two demo cards supplied in the ZIP reuse their normal image in every slot because custom rarity artwork has not been supplied. Replace each slot with your variant image URL for distinct artwork. The rarity label and rarity tracking still work while images are shared.
 
-## More customization
+To add more cards, add another object inside the outer square brackets, separated with a comma. No comma after the final object. Use double quotes and no comments. Keep IDs unique. Names and IDs must be at most 80 characters.
 
-Open bot.py in GitHub and edit these constants near the top:
+Commit changes and redeploy for JSON edits to load. Changing a display name/image updates existing cards too. Removing an entry keeps its last definition in the saved database for old cards; use weight 0 for an explicitly retired card.
 
-    SPAWN_MIN_SECONDS = 600
-    SPAWN_MAX_SECONDS = 1200
-    CLAIM_SECONDS = 300
+## Customize the shop
 
-600 and 1200 mean 10–20 minutes between spawns. 300 is a five-minute claim window. Keep the minimum at or below the maximum. The background loop checks every 30 seconds. If you change the timings, update the /setup confirmation text too.
+In economy.py, SHOP contains product IDs, labels and prices. The supplied three entries match the requested prices. Editing prices affects future purchases. Keep product IDs unchanged so already purchased items remain redeemable. Do not remove product definitions that people have purchased.
 
-Change the spawn embed color by editing color=0x79B86D in bot.py. A hex color like #FF5519 becomes 0xFF5519 in Python. Edit the Embed title/description strings to change the messages. To change bot name/avatar, use the Discord Developer Portal.
+To alter rewards, edit the relevant amounts in award_claim, exchange and set_bonus in economy.py. Back up your data before changing reward/migration logic.
 
-## First-time hosting
+## First setup or local run
 
-Create a Discord application at https://discord.com/developers/applications and generate its bot token. Keep it private. Enable Message Content Intent as above. Invite using OAuth2 > URL Generator, selecting bot and applications.commands, with View Channels, Send Messages, Embed Links and Read Message History permissions.
+Create an application at https://discord.com/developers/applications. Generate its bot token and keep it private. Enable Message Content Intent on Bot > Privileged Gateway Intents. Invite with bot and applications.commands scopes; allow View Channels, Send Messages, Embed Links, Read Message History.
 
-Upload the files to a private GitHub repository. In Railway create a project from that repository. It builds with the included Dockerfile. Add DISCORD_TOKEN and DATA_DIR=/data in service Variables, attach a volume at /data, then deploy. Run one replica. Disable sleeping/serverless mode if enabled. This bot needs no web domain or HTTP healthcheck. Check Railway's pricing before running it: https://railway.com/pricing.
+For Railway, put bot.py, economy.py, items.json, Dockerfile and requirements.txt in the GitHub repository root. Create a Railway service from it, set DISCORD_TOKEN and DATA_DIR=/data, attach a volume at /data, deploy. No web domain or HTTP healthcheck is needed. Check pricing at https://railway.com/pricing. Run one replica. Disable sleep/serverless mode if enabled.
 
-For immediate development command registration, optionally set TEST_GUILD_ID to your server ID. Turn on Discord Settings > Advanced > Developer Mode, right-click your server, and copy its ID. Leave that variable in place while testing. Global commands may take time to appear if TEST_GUILD_ID is absent.
+Optionally set TEST_GUILD_ID to your server ID for immediate test-server command registration. In Discord turn on Settings > Advanced > Developer Mode, right-click the server, Copy Server ID. Leave TEST_GUILD_ID in place while testing; global commands may take time to appear without it.
 
-## Optional local run
-
-Install Python 3.12, open a terminal in this folder, then run:
+For a local test, install Python 3.12, open a terminal in this folder:
 
     python -m venv .venv
 
-Windows activation:
+Activate on Windows:
 
     .venv\Scripts\activate
 
-macOS/Linux activation:
+Activate on macOS/Linux:
 
     source .venv/bin/activate
 
@@ -92,27 +117,18 @@ Then:
 
     python -m pip install -r requirements.txt
 
-Copy .env.example to .env, set DISCORD_TOKEN, leave DATA_DIR=./data, and run:
+Copy .env.example to .env, set DISCORD_TOKEN, keep local DATA_DIR=./data. Run:
 
     python bot.py
 
-Closing the terminal stops the local bot. Do not run it at the same time as your hosted instance.
+Closing the terminal stops the bot. Do not run locally alongside your hosted bot.
 
-## Troubleshooting
+## Checks and troubleshooting
 
-- Claim does nothing: enable Message Content Intent in the Developer Portal, save, and restart/redeploy. Send Claim as its entire message in the image's channel before expiry. Bot/webhook messages are ignored.
-- PrivilegedIntentsRequired or close code 4014: Message Content Intent is not enabled/authorized in the portal.
-- Image is blank: check the image link in a private browser window. It must serve a supported image such as PNG or JPEG. The bot does not validate remote image bytes on startup.
-- JSON error on startup: check double quotes, missing commas, trailing commas and duplicate IDs.
-- Commands missing: check application invite scopes, server ID and deployment logs.
-- Data missing: check the same volume remains mounted at /data and DATA_DIR is /data. Do not delete the volume. Enable host volume backups.
-- After restart, pending trade offers expire. Saved cards remain.
+Run included tests with:
 
-## Validation
+    python -m unittest test_bot.py -v
 
-Local mocked tests cover claim parsing, wrong-channel/expired/bot rejection, concurrent claims, spawn images, view fallback and trade ownership. A real Discord server/token is required for live verification.
+The suite checks migration, claim bonuses, milestone repetition, full rarity sets, sales, insufficient balances, shop redemption ownership/replays, trade rewards, concurrent claims, listing order, variant labels and spawn timing. These are local database/mock checks. A Discord token/server is required for live interaction testing.
 
-References:
-https://discordpy.readthedocs.io/en/stable/intents.html
-https://discordpy.readthedocs.io/en/stable/api.html
-https://docs.railway.com/volumes
+Claim does nothing or error 4014: check Message Content Intent in the portal and restart. Check the channel and expiry. Blank image: open its URL in a private browser window and ensure it is an image. JSON error: check commas, double quotes and field types. Data missing: keep DATA_DIR and volume mount both at /data. New commands missing: check logs and TEST_GUILD_ID. If economy.py is missing in logs, upload it and the updated Dockerfile.
