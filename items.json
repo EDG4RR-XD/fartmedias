@@ -1,0 +1,14 @@
+[
+  {
+    "id": "Canada",
+    "name": "Canada",
+    "image_url": "https://flagcdn.com/w640/ca.png",
+    "weight": 10
+  },
+  {
+    "id": "Japan",
+    "name": "Japan",
+    "image_url": "https://flagcdn.com/w640/jp.png",
+    "weight": 5
+  }
+]
