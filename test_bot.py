@@ -1,3 +1,4 @@
+import datetime
 import asyncio
 import importlib
 import os
@@ -151,6 +152,88 @@ class BotTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(embed.fields[0].inline)
         await bot_module.view_card.callback(i,card)
         self.assertIn('Silver',i.response.send_message.call_args.kwargs['embed'].description)
+
+
+class AdminTests(unittest.IsolatedAsyncioTestCase):
+    async def test_permission_checks(self):
+        import discord
+        for command in (bot_module.cgive,bot_module.ctake,bot_module.spawnrigged,bot_module.backup_data):
+            i=S(permissions=discord.Permissions.none(),user=S(id=5),created_at=datetime.datetime.now(datetime.timezone.utc))
+            denied=False
+            for check in command.checks:
+                try:
+                    result=check(i)
+                    if hasattr(result,'__await__'):
+                        await result
+                except discord.app_commands.MissingPermissions:
+                    denied=True
+                    break
+            self.assertTrue(denied,command.name)
+
+    async def test_adjustment_capped_and_idempotent(self):
+        db=new_db();eco.migrate(db)
+        with db:
+            self.assertEqual(eco.adjust_balance(db,1,9,2,300,100),(300,300))
+            self.assertEqual(eco.adjust_balance(db,1,9,2,300,100),(300,300))
+            self.assertEqual(eco.adjust_balance(db,1,9,2,-500,101),(-300,0))
+        self.assertEqual(eco.balance(db,1,2),0)
+        self.assertEqual(eco.balance(db,2,2),0)
+        self.assertEqual(db.execute('SELECT COUNT(*) FROM wallet_adjustments').fetchone()[0],2)
+        db.close()
+
+    async def test_backup_full_restore_and_server_scope(self):
+        import io,json,zipfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'live.db'
+            db=sqlite3.connect(path);db.row_factory=sqlite3.Row
+            db.executescript("PRAGMA journal_mode=WAL; CREATE TABLE cards(id INTEGER PRIMARY KEY AUTOINCREMENT,guild INTEGER,owner INTEGER,country TEXT); CREATE TABLE spawns(guild INTEGER PRIMARY KEY,channel INTEGER,message INTEGER,country TEXT,expires REAL);")
+            eco.migrate(db)
+            with db:
+                eco.award_claim(db,1,123456789012345678,'cat','silver')
+                eco.award_claim(db,2,222222222222222222,'dog','gold')
+                eco.credit(db,1,123456789012345678,6000)
+                purchase=eco.buy(db,1,123456789012345678,'free_ych')
+            for guild in (None,1):
+                payload=bot_module.export_database(path,guild)
+                with zipfile.ZipFile(io.BytesIO(payload)) as z:
+                    self.assertEqual(set(z.namelist()),{'flags.db','user-data.json','RESTORE.txt'})
+                    data=json.loads(z.read('user-data.json'))
+                    self.assertEqual(len(data['tables']['cards']),2 if guild is None else 1)
+                    self.assertIsInstance(data['tables']['cards'][0]['owner'],str)
+                    dest=Path(folder)/f'restore-{guild}.db';dest.write_bytes(z.read('flags.db'))
+                restored=sqlite3.connect(dest);restored.row_factory=sqlite3.Row
+                self.assertEqual(restored.execute('PRAGMA integrity_check').fetchone()[0],'ok')
+                self.assertEqual(eco.balance(restored,1,123456789012345678),2000)
+                self.assertEqual(restored.execute('SELECT id FROM purchases').fetchone()[0],purchase)
+                if guild:
+                    self.assertEqual(restored.execute('SELECT COUNT(*) FROM wallets WHERE guild=2').fetchone()[0],0)
+                restored.close()
+            db.close()
+
+    async def test_all_backup_nonowner_rejected(self):
+        old=bot_module.bot.is_owner
+        bot_module.bot.is_owner=AsyncMock(return_value=False)
+        try:
+            i=S(user=S(id=5),response=S(send_message=AsyncMock()))
+            await bot_module.backup_data.callback(i,'all')
+            self.assertTrue(i.response.send_message.call_args.kwargs['ephemeral'])
+        finally:
+            bot_module.bot.is_owner=old
+
+    async def test_rigged_spawn(self):
+        db=new_db();eco.migrate(db)
+        db.execute('CREATE TABLE settings(guild INTEGER PRIMARY KEY,channel INTEGER,next_spawn REAL)')
+        db.execute('INSERT INTO settings VALUES(1,2,0)');db.commit()
+        old=bot_module.db;bot_module.db=db;bot_module.spawn_lock=asyncio.Lock()
+        try:
+            channel=S(id=2,send=AsyncMock(return_value=S(id=900)))
+            self.assertTrue(await bot_module.spawn(1,channel,bot_module.CATALOG['Japan'],'obsidian'))
+            row=db.execute('SELECT * FROM spawns').fetchone()
+            self.assertEqual((row['country'],row['rarity']),('Japan','obsidian'))
+            self.assertFalse(await bot_module.spawn(1,channel,bot_module.CATALOG['Canada'],'gold'))
+        finally:
+            bot_module.db=old;db.close()
 
 
 if __name__=='__main__':

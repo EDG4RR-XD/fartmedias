@@ -1,5 +1,25 @@
 # Image collector bot with chudlets
 
+## New admin tools and downloadable data
+
+Upload the updated bot.py and economy.py to your existing repository. Keep your own items.json, volume, DATA_DIR and Discord token. Dockerfile and requirements.txt are unchanged from the previous release. The existing database gains an audit table without removing saved data. Redeploy and allow slash commands to sync. If TEST_GUILD_ID is set, try these commands in that server.
+
+IMPORTANT: If your current bot still has no persistent volume, deploying this update can erase its current local database before the new /backup command is available. Download a snapshot from the current deployment first, using the earlier terminal backup procedure. This update cannot recover a database that was already lost. /backup creates downloadable snapshots; it does not replace persistent storage.
+
+All new commands require Discord Administrator permission in this server. Both command visibility defaults and runtime checks enforce this.
+
+- /cgive member:@Player amount:1000 adds 1000 chudlets to that player's balance in this server.
+- /ctake member:@Player amount:500 removes up to 500. If they have less, their balance becomes zero; it never becomes negative. Amounts must be whole numbers from 1 to 1,000,000,000. Bot accounts cannot receive adjustments. Adjustments record the admin, player, amount, resulting balance, server and time in the database. Retrying the same Discord interaction cannot apply an adjustment twice.
+- /spawnrigged card:moon_cat rarity:gold spawns the selected card and rarity in your configured spawn channel. Select the card using autocomplete; normal is the default rarity. Cards with weight 0 can also be manually spawned. It refuses to replace an active spawn. Anyone can Claim it, and the usual rewards apply. The next scheduled spawn is five minutes later.
+- /backup defaults to This server. It produces an ephemeral attachment visible to the requesting admin. Click the ZIP attachment to download. It contains flags.db, user-data.json and RESTORE.txt. It captures collections, chudlets, purchases/redemptions, rewards history, admin adjustments, server spawn settings and saved card definitions. It does not include the bot token, .env, downloaded artwork, or pending in-memory trade offers. Images are saved as URLs.
+- /backup scope:All servers additionally checks that the requester owns the Discord application or belongs to its owning team. An ordinary server admin cannot download another server's users. Application ownership is checked through Discord, not through a guessed username. The requester must also have Administrator permission in the server where they invoke the command.
+
+Backups are consistent SQLite snapshots, including committed WAL changes. They are created in temporary storage and attached privately. The command has a 60-second per-user cooldown. If the ZIP exceeds Discord's upload limit, it reports that limitation; use your host's file-transfer tools instead. Download promptly and keep a private copy. Data after the snapshot time is not included. Do not commit user-data ZIPs or flags.db to GitHub.
+
+Restoring: pause the bot first, keep a copy of its current database, extract flags.db from the ZIP, and copy it into DATA_DIR as flags.db while the bot is stopped. Use the established volume restore workflow with the temporary sleep infinity start command. A single-server export replaces the destination with only that server's data; use All servers for a full multi-server restore. Restoring an older snapshot rolls balances and redemptions back to that point. Never overwrite an active SQLite database.
+
+The tests now include permissions, capped and idempotent chudlet adjustments, chosen spawns, server isolation, ZIP contents, integrity checks, WAL snapshot restoration, and denial of full exports to non-owners. 15 local tests passed. Live Discord tests still require your token/server.
+
 ## Update your existing bot
 
 1. Extract this ZIP.

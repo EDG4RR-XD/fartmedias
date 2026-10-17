@@ -1,3 +1,6 @@
+import io
+import tempfile
+import zipfile
 import asyncio
 import logging
 import os
@@ -158,12 +161,12 @@ async def on_message(message):
 spawn_lock = asyncio.Lock()
 
 
-async def spawn(guild_id, channel):
+async def spawn(guild_id, channel, chosen_item=None, chosen_rarity=None):
     async with spawn_lock:
-        return await _spawn(guild_id, channel)
+        return await _spawn(guild_id, channel, chosen_item, chosen_rarity)
 
 
-async def _spawn(guild_id, channel):
+async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None):
     active = db.execute('SELECT 1 FROM spawns WHERE guild=? AND expires>?', (guild_id, time.time())).fetchone()
     if active:
         return False
@@ -171,8 +174,8 @@ async def _spawn(guild_id, channel):
     with db:
         db.execute('UPDATE settings SET next_spawn=? WHERE guild=?',
                    (time.time() + random.randint(SPAWN_MIN_SECONDS, SPAWN_MAX_SECONDS), guild_id))
-    item = random.choices(ACTIVE_ITEMS, weights=[i['weight'] for i in ACTIVE_ITEMS])[0]
-    rarity = random.choices(list(eco.RARITIES), weights=list(eco.RARITIES.values()))[0]
+    item = chosen_item if chosen_item is not None else random.choices(ACTIVE_ITEMS, weights=[i['weight'] for i in ACTIVE_ITEMS])[0]
+    rarity = chosen_rarity if chosen_rarity is not None else random.choices(list(eco.RARITIES), weights=list(eco.RARITIES.values()))[0]
     embed = discord.Embed(title=item['name'], description=f"{rarity.title()} · Type **Claim** in this channel to collect this image.", color=0x79B86D)
     embed.set_image(url=image_for(item, rarity))
     embed.set_footer(text=f'Expires in {CLAIM_SECONDS // 60} minutes.')
@@ -412,10 +415,117 @@ async def receipt(interaction:discord.Interaction,item_id:int):
     await interaction.response.send_message(redemption_text(interaction.user.id,item_id,row['product']))
 
 
+def export_database(path, guild_id=None):
+    """Consistent SQLite snapshot, optionally limited to a single server."""
+    source = sqlite3.connect(Path(path).resolve().as_uri() + '?mode=ro', uri=True)
+    try:
+        with tempfile.TemporaryDirectory() as folder:
+            snapshot = Path(folder) / 'flags.db'
+            dest = sqlite3.connect(snapshot)
+            dest.row_factory = sqlite3.Row
+            try:
+                source.backup(dest)
+                tables = [r[0] for r in dest.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
+                with dest:
+                    if guild_id is not None:
+                        for table in tables:
+                            quoted = '"' + table.replace('"','""') + '"'
+                            if 'guild' in {r['name'] for r in dest.execute(f'PRAGMA table_info({quoted})')}:
+                                dest.execute(f'DELETE FROM {quoted} WHERE guild IS NULL OR guild != ?', (guild_id,))
+                if dest.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
+                    raise ValueError('Backup integrity check failed')
+                exported = {}
+                for table in tables:
+                    quoted = '"' + table.replace('"','""') + '"'
+                    exported[table] = [{k: str(v) if isinstance(v,int) and abs(v)>2**53-1 else v for k,v in dict(row).items()} for row in dest.execute(f'SELECT * FROM {quoted}')]
+                # Package all committed pages in the main file, without a separate WAL.
+                dest.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+                dest.execute('PRAGMA journal_mode=DELETE')
+            finally:
+                dest.close()
+            output = io.BytesIO()
+            with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
+                archive.write(snapshot,'flags.db')
+                archive.writestr('user-data.json',json.dumps({'scope':'all' if guild_id is None else str(guild_id),'tables':exported},ensure_ascii=False,indent=2))
+                archive.writestr('RESTORE.txt','flags.db is a consistent SQLite snapshot. Stop the bot before restoring it as DATA_DIR/flags.db. Keep a copy of the current database first. Do not restore over a running bot. A server-only export contains only that server; replacing a multi-server database with it removes other servers. user-data.json is for inspection. Discord snowflake IDs are strings to preserve precision. Pending offers exist only in memory and are not included. Tokens and .env are not included. Images are URLs, not downloaded image files. Never upload this archive to a public repository.\n')
+            return output.getvalue()
+    finally:
+        source.close()
+
+
+@bot.tree.command(name='backup',description='Download saved user data privately. Admins: this server. Bot owner: all servers.')
+@app_commands.guild_only()
+@app_commands.default_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
+@app_commands.choices(scope=[app_commands.Choice(name='This server',value='server'),app_commands.Choice(name='All servers (bot owner only)',value='all')])
+@app_commands.checks.cooldown(1,60.0,key=lambda i:i.user.id)
+async def backup_data(interaction:discord.Interaction,scope:str='server'):
+    if scope not in ('server','all'):
+        return await interaction.response.send_message('Choose server or all.',ephemeral=True)
+    if scope == 'all' and not await bot.is_owner(interaction.user):
+        return await interaction.response.send_message('Only the Discord application owner/team can export every server. Choose This server instead.',ephemeral=True)
+    await interaction.response.defer(ephemeral=True,thinking=True)
+    path = db.execute('PRAGMA database_list').fetchone()['file']
+    payload = await asyncio.to_thread(export_database,path,None if scope=='all' else interaction.guild_id)
+    if len(payload) > interaction.filesize_limit:
+        return await interaction.followup.send('This backup exceeds Discord’s attachment limit. Download a SQLite snapshot through your host instead.',ephemeral=True)
+    filename=f"user-data-{'all' if scope=='all' else interaction.guild_id}-{int(time.time())}.zip"
+    await interaction.followup.send('Download and keep this ZIP privately. It contains flags.db for restoration and user-data.json for inspection. It is a snapshot from this moment.',file=discord.File(io.BytesIO(payload),filename=filename),ephemeral=True)
+
+
+@bot.tree.command(name='cgive',description='Administrator: add chudlets to a player in this server.')
+@app_commands.guild_only()
+@app_commands.default_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
+async def cgive(interaction:discord.Interaction,member:discord.Member,amount:app_commands.Range[int,1,1000000000]):
+    if member.bot:
+        return await interaction.response.send_message('Choose a human player.',ephemeral=True)
+    with db:
+        result=eco.adjust_balance(db,interaction.guild_id,interaction.user.id,member.id,amount,interaction.id)
+    await interaction.response.send_message(f'Added {result[0]:,} chudlets to {discord.utils.escape_markdown(member.display_name)}. Balance: {result[1]:,}.',ephemeral=True)
+
+
+@bot.tree.command(name='ctake',description='Administrator: take chudlets from a player, stopping at zero.')
+@app_commands.guild_only()
+@app_commands.default_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
+async def ctake(interaction:discord.Interaction,member:discord.Member,amount:app_commands.Range[int,1,1000000000]):
+    if member.bot:
+        return await interaction.response.send_message('Choose a human player.',ephemeral=True)
+    with db:
+        result=eco.adjust_balance(db,interaction.guild_id,interaction.user.id,member.id,-amount,interaction.id)
+    await interaction.response.send_message(f'Removed {-result[0]:,} chudlets from {discord.utils.escape_markdown(member.display_name)}. Balance: {result[1]:,}.',ephemeral=True)
+
+
+@bot.tree.command(name='spawnrigged',description='Administrator: spawn a specific card and rarity in the configured channel.')
+@app_commands.guild_only()
+@app_commands.default_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
+@app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
+async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal'):
+    if card not in CATALOG or rarity not in eco.RARITIES:
+        return await interaction.response.send_message('Choose a card from autocomplete and a valid rarity.',ephemeral=True)
+    row=db.execute('SELECT channel FROM settings WHERE guild=?',(interaction.guild_id,)).fetchone()
+    if not row:
+        return await interaction.response.send_message('Run /setup first.',ephemeral=True)
+    await interaction.response.defer(ephemeral=True)
+    channel=bot.get_channel(row['channel']) or await bot.fetch_channel(row['channel'])
+    success=await spawn(interaction.guild_id,channel,CATALOG[card],rarity)
+    await interaction.followup.send('Chosen card spawned. Anyone can claim it normally.' if success else 'An image is already waiting. Claim it or wait for it to expire first.',ephemeral=True)
+
+
+@spawnrigged.autocomplete('card')
+async def autocomplete_card(interaction:discord.Interaction,current:str):
+    matching=[item for item in CATALOG.values() if current.casefold() in item['name'].casefold() or current.casefold() in item['id'].casefold()]
+    return [app_commands.Choice(name=f"{i['name']} ({i['id']})"[:100],value=i['id']) for i in matching[:25]]
+
+
 @bot.tree.error
 async def command_error(interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
-        text = 'You need Manage Server permission for this command.'
+        text = 'Missing required permission: ' + ', '.join(error.missing_permissions)
+    elif isinstance(error, app_commands.CommandOnCooldown):
+        text = f'Try again in {error.retry_after:.0f} seconds.'
     else:
         logging.error('Command failed', exc_info=(type(error), error, error.__traceback__))
         text = 'Command failed. Check the hosting logs and my channel permissions.'

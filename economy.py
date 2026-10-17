@@ -15,6 +15,7 @@ def migrate(db):
         if 'rarity' not in columns:
             db.execute(f"ALTER TABLE {table} ADD COLUMN rarity TEXT NOT NULL DEFAULT 'normal'")
     db.executescript('''
+    CREATE TABLE IF NOT EXISTS wallet_adjustments(request TEXT PRIMARY KEY, guild INTEGER, actor INTEGER, owner INTEGER, delta INTEGER, balance INTEGER, created_at REAL);
     CREATE TABLE IF NOT EXISTS wallets(guild INTEGER, owner INTEGER, amount INTEGER NOT NULL DEFAULT 0 CHECK(amount>=0), PRIMARY KEY(guild,owner));
     CREATE TABLE IF NOT EXISTS discoveries(guild INTEGER, owner INTEGER, item TEXT, PRIMARY KEY(guild,owner,item));
     CREATE TABLE IF NOT EXISTS milestones(guild INTEGER, owner INTEGER, item TEXT, level INTEGER DEFAULT 0, PRIMARY KEY(guild,owner,item));
@@ -105,3 +106,18 @@ def redeem(db,guild,owner,purchase_id):
         return None
     db.execute('UPDATE purchases SET used=1 WHERE id=? AND used=0',(purchase_id,))
     return row['product']
+
+
+def adjust_balance(db,guild,actor,owner,delta,request):
+    import time
+    old=db.execute('SELECT delta,balance FROM wallet_adjustments WHERE request=?',(str(request),)).fetchone()
+    if old:
+        return old['delta'],old['balance']
+    current=balance(db,guild,owner)
+    actual=max(delta,-current)
+    if current+actual > 9000000000000000000:
+        raise ValueError('Balance limit exceeded')
+    final=current+actual
+    db.execute('INSERT INTO wallets VALUES(?,?,?) ON CONFLICT(guild,owner) DO UPDATE SET amount=excluded.amount',(guild,owner,final))
+    db.execute('INSERT INTO wallet_adjustments VALUES(?,?,?,?,?,?,?)',(str(request),guild,actor,owner,actual,final,time.time()))
+    return actual,final
