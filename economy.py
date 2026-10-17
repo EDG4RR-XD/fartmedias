@@ -8,9 +8,9 @@ RARITIES = {
 }
 SET_DEFINITIONS = {}
 SHOP = {
-    'free_ych': ('FREE YCH', 5000),
-    'on_base_custom': ('FREE ON BASE CUSTOM', 10000),
-    'off_base_custom': ('FREE OFF BASE CUSTOM', 30000),
+    'free_ych': ('FREE YCH', 15000),
+    'on_base_custom': ('FREE ON BASE CUSTOM', 20000),
+    'off_base_custom': ('FREE OFF BASE CUSTOM', 40000),
 }
 
 
