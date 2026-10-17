@@ -1,8 +1,31 @@
 [
   {
-    "id": "Canada",
-    "name": "Canada",
-    "image_url": "https://flagcdn.com/w640/ca.png",
+    "id": "Seadweller",
+    "name": "Seadweller",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Normaldweller",
+    "weight": 1,
+    "sell_value": 100,
+    "rarity_sell_values": {
+      "silver": 200,
+      "gold": 400,
+      "emerald": 600,
+      "diamond": 800,
+      "obsidian": 1000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Normaldweller",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Silverdweller",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Golddweller",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Emeralddweller",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Diamonddweller",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/obdweller"
+    }
+  },
+
+    {
+    "id": "Thistle",
+    "name": "Thistle",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/NormalT",
     "weight": 10,
     "sell_value": 100,
     "rarity_sell_values": {
@@ -13,19 +36,20 @@
       "obsidian": 1000
     },
     "rarity_images": {
-      "normal": "https://flagcdn.com/w640/ca.png",
-      "silver": "https://flagcdn.com/w640/ca.png",
-      "gold": "https://flagcdn.com/w640/ca.png",
-      "emerald": "https://flagcdn.com/w640/ca.png",
-      "diamond": "https://flagcdn.com/w640/ca.png",
-      "obsidian": "https://flagcdn.com/w640/ca.png"
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/NormalT",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/silverT",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/GoldT.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/EmeraldT",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/DiamondT",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/ObT"
     }
   },
-  {
-    "id": "Japan",
-    "name": "Japan",
-    "image_url": "https://flagcdn.com/w640/jp.png",
-    "weight": 5,
+
+   {
+    "id": "Deli",
+    "name": "Green Delicious",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/NormalD",
+    "weight": 10,
     "sell_value": 100,
     "rarity_sell_values": {
       "silver": 200,
@@ -35,12 +59,35 @@
       "obsidian": 1000
     },
     "rarity_images": {
-      "normal": "https://flagcdn.com/w640/jp.png",
-      "silver": "https://flagcdn.com/w640/jp.png",
-      "gold": "https://flagcdn.com/w640/jp.png",
-      "emerald": "https://flagcdn.com/w640/jp.png",
-      "diamond": "https://flagcdn.com/w640/jp.png",
-      "obsidian": "https://flagcdn.com/w640/jp.png"
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/NormalD",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/SilverD",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Goldd",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Emeraldd",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/DiamondD",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Obd"
+    }
+  },
+
+     {
+    "id": "Gamble",
+    "name": "Gamble",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/NormalG",
+    "weight": 10,
+    "sell_value": 100,
+    "rarity_sell_values": {
+      "silver": 200,
+      "gold": 400,
+      "emerald": 600,
+      "diamond": 800,
+      "obsidian": 1000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/NormalG",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/SilverG",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/GoldG",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/EmeraldG",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/DiamondG",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/ObG"
     }
   }
 ]
