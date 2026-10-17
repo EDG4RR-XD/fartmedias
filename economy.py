@@ -1,7 +1,12 @@
 """Synchronous SQLite operations. Call mutations inside `with db:` without awaits."""
 import json
 
-RARITIES = {'normal': 79, 'silver': 10, 'gold': 5, 'emerald': 3, 'diamond': 2, 'obsidian': 1}
+RARITIES = {
+    'normal': 74, 'silver': 10, 'gold': 5, 'emerald': 3, 'diamond': 2, 'obsidian': 1,
+    'bronze': 2, 'copper': 1, 'rose_quartz': 0.5, 'ruby': 0.4, 'sapphire': 0.3,
+    'amethyst': 0.25, 'pearl': 0.2, 'holographic': 0.15, 'rainbow': 0.12, 'glitch': 0.08,
+}
+SET_DEFINITIONS = {}
 SHOP = {
     'free_ych': ('FREE YCH', 5000),
     'on_base_custom': ('FREE ON BASE CUSTOM', 10000),
@@ -15,6 +20,9 @@ def migrate(db):
         if 'rarity' not in columns:
             db.execute(f"ALTER TABLE {table} ADD COLUMN rarity TEXT NOT NULL DEFAULT 'normal'")
     db.executescript('''
+    CREATE TABLE IF NOT EXISTS set_definitions(id TEXT PRIMARY KEY, name TEXT, members TEXT);
+    CREATE TABLE IF NOT EXISTS completed_card_sets(guild INTEGER, owner INTEGER, set_id TEXT, PRIMARY KEY(guild,owner,set_id));
+    CREATE TABLE IF NOT EXISTS currency_transfers(request TEXT PRIMARY KEY, guild INTEGER, sender INTEGER, recipient INTEGER, amount INTEGER, created_at REAL);
     CREATE TABLE IF NOT EXISTS wallet_adjustments(request TEXT PRIMARY KEY, guild INTEGER, actor INTEGER, owner INTEGER, delta INTEGER, balance INTEGER, created_at REAL);
     CREATE TABLE IF NOT EXISTS wallets(guild INTEGER, owner INTEGER, amount INTEGER NOT NULL DEFAULT 0 CHECK(amount>=0), PRIMARY KEY(guild,owner));
     CREATE TABLE IF NOT EXISTS discoveries(guild INTEGER, owner INTEGER, item TEXT, PRIMARY KEY(guild,owner,item));
@@ -65,6 +73,7 @@ def award_claim(db, guild, owner, item, rarity):
         db.execute('INSERT INTO milestones VALUES(?,?,?,?) ON CONFLICT(guild,owner,item) DO UPDATE SET level=excluded.level', (guild,owner,item,level))
     credit(db,guild,owner,reward)
     reward += set_bonus(db,guild,owner,item)
+    reward += card_set_bonus(db,guild,owner)
     return card_id,reward
 
 
@@ -80,7 +89,7 @@ def exchange(db,guild,sender,target,give,want):
         # Trade discoveries prevent later selling/reclaiming as a "new" base card.
         db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)',(guild,owner,item))
         credit(db,guild,owner,100)
-        bonuses.append(100+set_bonus(db,guild,owner,item))
+        bonuses.append(100+set_bonus(db,guild,owner,item)+card_set_bonus(db,guild,owner))
     return bonuses
 
 
@@ -121,3 +130,55 @@ def adjust_balance(db,guild,actor,owner,delta,request):
     db.execute('INSERT INTO wallets VALUES(?,?,?) ON CONFLICT(guild,owner) DO UPDATE SET amount=excluded.amount',(guild,owner,final))
     db.execute('INSERT INTO wallet_adjustments VALUES(?,?,?,?,?,?,?)',(str(request),guild,actor,owner,actual,final,time.time()))
     return actual,final
+
+
+def transfer(db,guild,sender,recipient,amount,request):
+    import time
+    if isinstance(amount,bool) or not isinstance(amount,int) or amount <= 0 or sender == recipient:
+        return False
+    previous=db.execute('SELECT * FROM currency_transfers WHERE request=?',(str(request),)).fetchone()
+    if previous:
+        return (previous['guild'],previous['sender'],previous['recipient'],previous['amount']) == (guild,sender,recipient,amount)
+    if balance(db,guild,recipient)+amount > 9000000000000000000:
+        return False
+    if not db.execute('UPDATE wallets SET amount=amount-? WHERE guild=? AND owner=? AND amount>=?',(amount,guild,sender,amount)).rowcount:
+        return False
+    credit(db,guild,recipient,amount)
+    db.execute('INSERT INTO currency_transfers VALUES(?,?,?,?,?,?)',(str(request),guild,sender,recipient,amount,time.time()))
+    return True
+
+
+def configure_sets(db,definitions,items):
+    global SET_DEFINITIONS
+    if not isinstance(definitions,list):
+        raise ValueError('sets.json must contain a list.')
+    configured={}
+    for entry in definitions:
+        if not isinstance(entry,dict) or any(not isinstance(entry.get(k),str) or not entry[k].strip() or len(entry[k])>80 for k in ('id','name')):
+            raise ValueError('Every set needs id and name strings up to 80 characters.')
+        if entry['id'] in configured:
+            raise ValueError('Duplicate set ID.')
+        configured[entry['id']]={'name':entry['name'],'members':set()}
+    for item in items:
+        tags=item.get('sets',[])
+        if not isinstance(tags,list) or any(not isinstance(tag,str) or tag not in configured for tag in tags):
+            raise ValueError('Each item sets field must be a list of IDs defined in sets.json.')
+        for tag in tags:
+            configured[tag]['members'].add(item['id'])
+    SET_DEFINITIONS=configured
+    with db:
+        # Persist the current definitions for inspection in exports; history is separate.
+        db.execute('DELETE FROM set_definitions')
+        db.executemany('INSERT INTO set_definitions VALUES(?,?,?)',[(key,value['name'],json.dumps(sorted(value['members']))) for key,value in configured.items()])
+
+
+def card_set_bonus(db,guild,owner):
+    owned={r['country'] for r in db.execute('SELECT DISTINCT country FROM cards WHERE guild=? AND owner=?',(guild,owner))}
+    earned=0
+    for key,definition in SET_DEFINITIONS.items():
+        if definition['members'] and definition['members'] <= owned:
+            if db.execute('INSERT OR IGNORE INTO completed_card_sets VALUES(?,?,?)',(guild,owner,key)).rowcount:
+                earned += 10000
+    if earned:
+        credit(db,guild,owner,earned)
+    return earned

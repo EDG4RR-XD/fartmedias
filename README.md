@@ -1,5 +1,88 @@
 # Image collector bot with chudlets
 
+## Latest update: currency transfers, card sets, drawing prompts, 10 variants
+
+Upload bot.py, economy.py, Dockerfile, sets.json and draw_pool.json from this release. Keep your customized items.json. If you already have sets.json or draw_pool.json from this release, preserve your custom contents too. The supplied two new JSON files are empty lists so no fabricated card sets or OC prompts are enabled. Keep your volume and DATA_DIR unchanged. Run /backup and download it before deploying. If you still have no persistent storage, back up the currently running deployment before replacing it.
+
+### /ctrade number user
+
+Example: /ctrade number:500 user:@Alex transfers 500 of YOUR chudlets to Alex in this server. Any human player can use it; no admin permission is required. It cannot transfer to yourself or a bot, send zero/negative amounts, or overdraw your account. Transfers have no fee, do not create new currency, and do not award the card-trade bonus. A repeated Discord interaction cannot debit twice. Both sides and the transfer log are saved atomically. Amount limit: 1–1,000,000,000.
+
+### Card sets, 10,000 chudlets per completed set
+
+Edit sets.json to define your set IDs and display names:
+
+```json
+[
+  {"id": "ocean", "name": "Ocean Set"},
+  {"id": "halloween", "name": "Halloween Set"}
+]
+```
+
+Then edit each relevant object in YOUR existing items.json. Add a sets field next to weight or sell_value, preserving the commas:
+
+```json
+"sets": ["ocean"]
+```
+
+To attach one card to two sets:
+
+```json
+"sets": ["ocean", "halloween"]
+```
+
+For example, add sets:["ocean"] to both your existing seadweller and mermaid entries to make the Ocean Set require those two base cards. Use the actual IDs of your own sets and cards. Every set tag must be defined in sets.json. A card without the sets field belongs to no sets. An empty set gives no reward. A retired card with weight 0 remains a requirement if still assigned; remove its set tag if you want it excluded.
+
+Players must own at least one copy of EVERY assigned base card simultaneously. Any rarity counts. Claims and incoming card trades check completion automatically. /sets shows owned/missing counts and grants any previously unclaimed completion rewards, including sets added after cards were collected. Each set pays 10,000 chudlets once per player per server. Selling/trading away cards and rebuilding a set does not pay again. Multiple completed sets can pay together. Keep set IDs stable; changing an ID creates a new reward identity. Editing membership does not reset already paid rewards.
+
+This is separate from the 5000-chudlet bonus for collecting every rarity of one base card.
+
+### /draw, a separate random pool with no automatic payout
+
+Edit draw_pool.json like this, replacing the sample links with your real direct HTTPS image URLs:
+
+```json
+[
+  {"image_url": "https://your-image-host.example/oc-one.png"},
+  {"image_url": "https://your-image-host.example/oc-two.png"}
+]
+```
+
+Each entry is equally likely. Entries may repeat on later rolls. /draw posts the image with this exact text:
+
+Draw this OC (Coloured, any) for 7500 Chudlets!
+
+Using /draw never grants chudlets, awards no card, and charges nothing. A 10-second per-user cooldown limits repeated prompts. You approve completed artwork and award 7500 manually with /cgive. The empty default pool gives an explanatory message until you add OC links. Draw images are independent of collectible card images.
+
+### Ten added variants and their odds
+
+The new mutually exclusive percentages are:
+
+normal 74%; silver 10%; gold 5%; emerald 3%; diamond 2%; obsidian 1%; bronze 2%; copper 1%; rose_quartz 0.5%; ruby 0.4%; sapphire 0.3%; amethyst 0.25%; pearl 0.2%; holographic 0.15%; rainbow 0.12%; glitch 0.08%.
+
+They total 100%. These are defaults chosen for the new variants. You can edit RARITIES in economy.py to change the weights. The values are relative weights; when the sum is 100 they equal percentages.
+
+The new keys are bronze, copper, rose_quartz, ruby, sapphire, amethyst, pearl, holographic, rainbow and glitch. Add them to each card's existing rarity_images object to supply separate artwork:
+
+```json
+"bronze": "https://your-image-host.example/card-bronze.png",
+"copper": "https://your-image-host.example/card-copper.png",
+"rose_quartz": "https://your-image-host.example/card-rose-quartz.png",
+"ruby": "https://your-image-host.example/card-ruby.png",
+"sapphire": "https://your-image-host.example/card-sapphire.png",
+"amethyst": "https://your-image-host.example/card-amethyst.png",
+"pearl": "https://your-image-host.example/card-pearl.png",
+"holographic": "https://your-image-host.example/card-holographic.png",
+"rainbow": "https://your-image-host.example/card-rainbow.png",
+"glitch": "https://your-image-host.example/card-glitch.png"
+```
+
+This snippet is fields to merge inside rarity_images, not a complete replacement items.json. Keep your normal/silver/gold/emerald/diamond/obsidian links. Missing variant artwork falls back to image_url. Artwork is not generated by this update. Add optional new keys to rarity_sell_values to give them different sale prices; otherwise sell_value applies.
+
+/list, /collection, /view, /sell, /spawnrigged and card trades recognize all 16 variants. The 5000-chudlet rarity completion bonus now requires all 16. Players already paid for the old six-variant set keep their reward and are not paid again for the same base card. Currency transfers and named sets use separate tables; your existing saved data is migrated without resetting it.
+
+New local tests cover transfer conservation, overdraft rejection, duplicate transfer handling, server isolation, set claims/trades/recompletion, existing-card completion, empty and invalid sets, draw behavior with zero currency payout, rarity odds and image overrides. All 21 local tests passed. Live Discord verification still requires your deployed bot.
+
 ## New admin tools and downloadable data
 
 Upload the updated bot.py and economy.py to your existing repository. Keep your own items.json, volume, DATA_DIR and Discord token. Dockerfile and requirements.txt are unchanged from the previous release. The existing database gains an audit table without removing saved data. Redeploy and allow slash commands to sync. If TEST_GUILD_ID is set, try these commands in that server.
@@ -18,7 +101,7 @@ Backups are consistent SQLite snapshots, including committed WAL changes. They a
 
 Restoring: pause the bot first, keep a copy of its current database, extract flags.db from the ZIP, and copy it into DATA_DIR as flags.db while the bot is stopped. Use the established volume restore workflow with the temporary sleep infinity start command. A single-server export replaces the destination with only that server's data; use All servers for a full multi-server restore. Restoring an older snapshot rolls balances and redemptions back to that point. Never overwrite an active SQLite database.
 
-The tests now include permissions, capped and idempotent chudlet adjustments, chosen spawns, server isolation, ZIP contents, integrity checks, WAL snapshot restoration, and denial of full exports to non-owners. 15 local tests passed. Live Discord tests still require your token/server.
+The tests now include permissions, capped and idempotent chudlet adjustments, chosen spawns, server isolation, ZIP contents, integrity checks, WAL snapshot restoration, and denial of full exports to non-owners. 21 local tests passed. Live Discord tests still require your token/server.
 
 ## Update your existing bot
 
@@ -34,7 +117,7 @@ No chudlets are paid retrospectively for pre-update cards. Existing holdings see
 
 ## Commands
 
-/list [page]: shows all known base cards. Owned cards appear in the upper row/section, missing cards below it. Each owned card shows counts for all six rarities. Use page:2, page:3 etc. when needed. Each page shows up to three owned and three missing cards.
+/list [page]: shows all known base cards. Owned cards appear in the upper row/section, missing cards below it. Each owned card shows counts for all 16 rarities. Use page:2, page:3 etc. when needed. Each page shows up to three owned and three missing cards.
 /collection [member] [page]: individual card IDs with rarity labels.
 /view card_id: displays that card's rarity-specific image.
 /balance: your chudlets.
@@ -56,13 +139,13 @@ Send the entire message Claim in the spawn channel. claim and CLAIM also work. F
 - First discovery of a base card: 1000 chudlets. A new rarity of an already discovered base card is a duplicate for this particular bonus. Selling or trading it away does not reset discovery history. Acquiring a card through trade records it as discovered but awards only the trade reward, not the first-claim reward.
 - Successful trade: 100 chudlets to each participant. Failed, expired or replayed acceptances do not pay. Repeated legitimate trades each pay, as configured by this rule.
 - Five-copy milestone: 1000 when a claim brings current holdings of that base card to 5, 10, 15 etc. All rarities count toward the same total. Each milestone pays at most once per player and base card. Selling/trading copies away and returning to a previously paid milestone does not pay again. Trades never trigger this reward. If a trade brings you to five and the next claim is your sixth, no five-copy payout occurs.
-- Full rarity set: 5000 once per player and base card when they own normal, silver, gold, emerald, diamond and obsidian together. A claim or incoming trade can complete the set. Selling and rebuilding the set does not repeat the payout.
+- Full rarity set: 5000 once per player and base card when they own every one of the 16 configured rarities together. A claim or incoming trade can complete the set. Selling and rebuilding the set does not repeat the payout.
 
 Rewards can stack. All balances, inventories, history and collections are per server. Selling cards never removes earned chudlets or prior discovery records. Keep volume backups enabled on your host.
 
 ## Rarity rolls
 
-A base card is chosen using its weight. A separate rarity roll then chooses normal 79%, silver 10%, gold 5%, emerald 3%, diamond 2%, obsidian 1%. These are mutually exclusive outcomes totaling 100%. Variants share one base card ID but each collected copy stores its own rarity.
+A base card is chosen using its weight. A separate rarity roll then chooses the 16 rarity weights listed at the top of this README. These are mutually exclusive outcomes totaling 100%. All 16 variants share one base card ID but each collected copy stores its own rarity.
 
 ## Customize cards, sale prices and images
 
@@ -101,7 +184,7 @@ weight controls base-card spawn frequency relative to other entries. Set weight 
 
 sell_value is your base sale price in chudlets, used for normal cards and rarities without a specific override. rarity_sell_values optionally overrides it per rarity. Prices are nonnegative integers. Example: sell_value:250 and a gold override of 1000 means a normal copy sells for 250 and a gold copy for 1000. Edit these values to choose your own prices. Old entries without prices default to 100.
 
-rarity_images lets you provide six different images for the same card. If you omit a rarity's image, it uses image_url until you add artwork. The two demo cards supplied in the ZIP reuse their normal image in every slot because custom rarity artwork has not been supplied. Replace each slot with your variant image URL for distinct artwork. The rarity label and rarity tracking still work while images are shared.
+rarity_images lets you provide up to 16 different images for the same card. If you omit a rarity's image, it uses image_url until you add artwork. The two demo cards supplied in the ZIP reuse their normal image in every slot because custom rarity artwork has not been supplied. Replace each slot with your variant image URL for distinct artwork. The rarity label and rarity tracking still work while images are shared.
 
 To add more cards, add another object inside the outer square brackets, separated with a comma. No comma after the final object. Use double quotes and no comments. Keep IDs unique. Names and IDs must be at most 80 characters.
 

@@ -77,6 +77,18 @@ for item in ITEMS:
     prices = item.get('rarity_sell_values', {})
     if not isinstance(prices, dict) or set(prices)-set(eco.RARITIES) or any(isinstance(v,bool) or not isinstance(v,int) or v<0 for v in prices.values()):
         raise ValueError('rarity_sell_values must map known rarities to nonnegative integers.')
+sets_path = ROOT / 'sets.json'
+with sets_path.open(encoding='utf-8') if sets_path.exists() else io.StringIO('[]') as f:
+    eco.configure_sets(db,json.load(f),ITEMS)
+# /draw uses its own pool. An absent file is treated as an empty pool.
+draw_path = ROOT / 'draw_pool.json'
+with draw_path.open(encoding='utf-8') if draw_path.exists() else io.StringIO('[]') as f:
+    DRAW_POOL = json.load(f)
+if not isinstance(DRAW_POOL,list):
+    raise ValueError('draw_pool.json must contain a list.')
+for entry in DRAW_POOL:
+    if not isinstance(entry,dict) or not isinstance(entry.get('image_url'),str) or urlparse(entry['image_url']).scheme != 'https' or not urlparse(entry['image_url']).netloc:
+        raise ValueError('Each draw entry needs a public HTTPS image_url.')
 ACTIVE_ITEMS = [item for item in ITEMS if item['weight'] > 0]
 if not ACTIVE_ITEMS:
     raise ValueError('At least one item must have a weight above zero.')
@@ -320,7 +332,9 @@ async def card_list(interaction: discord.Interaction, page: app_commands.Range[i
         top.append(f"**{discord.utils.escape_markdown(item_info(i)['name'])}** ({sum(counts.values())})\n{variants}")
     bottom=[discord.utils.escape_markdown(item_info(i)['name']) for i in no[offset:offset+3]]
     embed=discord.Embed(title='Card list')
-    embed.add_field(name=f'Owned ({len(yes)})',value='\n'.join(top) or 'None on this page.',inline=False)
+    embed.add_field(name=f'Owned ({len(yes)})',value=top[0][:1024] if top else 'None on this page.',inline=False)
+    for text in top[1:]:
+        embed.add_field(name='Owned, continued',value=text[:1024],inline=False)
     embed.add_field(name=f'Not owned ({len(no)})',value='\n'.join(bottom) or 'None on this page.',inline=False)
     embed.set_footer(text=f'Page {page}/{pages} · Use /list page:2 for the next page. Counts reflect current ownership.')
     await interaction.response.send_message(embed=embed,ephemeral=True)
@@ -518,6 +532,52 @@ async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='norma
 async def autocomplete_card(interaction:discord.Interaction,current:str):
     matching=[item for item in CATALOG.values() if current.casefold() in item['name'].casefold() or current.casefold() in item['id'].casefold()]
     return [app_commands.Choice(name=f"{i['name']} ({i['id']})"[:100],value=i['id']) for i in matching[:25]]
+
+
+@bot.tree.command(name='ctrade',description='Give another player some of your chudlets.')
+@app_commands.guild_only()
+async def ctrade(interaction:discord.Interaction,number:app_commands.Range[int,1,1000000000],user:discord.Member):
+    if user.bot or user.id==interaction.user.id:
+        return await interaction.response.send_message('Choose another human player.',ephemeral=True)
+    with db:
+        success=eco.transfer(db,interaction.guild_id,interaction.user.id,user.id,number,interaction.id)
+    if not success:
+        return await interaction.response.send_message('Transfer failed. Check your balance and the recipient’s balance limit.',ephemeral=True)
+    await interaction.response.send_message(f'Sent {number:,} chudlets to {discord.utils.escape_markdown(user.display_name)}. Your balance: {eco.balance(db,interaction.guild_id,interaction.user.id):,}.',ephemeral=True)
+
+
+@bot.tree.command(name='sets',description='See card sets, completion progress and claim earned set bonuses.')
+@app_commands.guild_only()
+async def sets_command(interaction:discord.Interaction,page:app_commands.Range[int,1,100000]=1):
+    with db:
+        earned=eco.card_set_bonus(db,interaction.guild_id,interaction.user.id)
+    owned={r['country'] for r in db.execute('SELECT DISTINCT country FROM cards WHERE guild=? AND owner=?',(interaction.guild_id,interaction.user.id))}
+    paid={r['set_id'] for r in db.execute('SELECT set_id FROM completed_card_sets WHERE guild=? AND owner=?',(interaction.guild_id,interaction.user.id))}
+    definitions=list(eco.SET_DEFINITIONS.items())
+    embed=discord.Embed(title='Card sets',description=f'Completion reward: 10,000 chudlets per set. Earned now: {earned:,}.')
+    for key,definition in definitions[(page-1)*5:page*5]:
+        members=definition['members']
+        missing=sorted(members-owned,key=lambda item:item_info(item)['name'].casefold())
+        names=', '.join(discord.utils.escape_markdown(item_info(i)['name']) for i in missing)
+        status='Reward already collected.' if key in paid else 'Reward available on completion.'
+        embed.add_field(name=definition['name'],value=f"{len(members & owned)}/{len(members)} owned. {status}\nMissing: {names[:800] or 'None'}" if members else 'No cards assigned yet; no reward.',inline=False)
+    if not definitions:
+        embed.add_field(name='No sets configured',value='Add sets.json and assign cards using the sets field in items.json.',inline=False)
+    embed.set_footer(text=f'Page {page}/{max(1,(len(definitions)+4)//5)}. Any rarity counts. Each reward pays once per player and server.')
+    await interaction.response.send_message(embed=embed,ephemeral=True)
+
+
+@bot.tree.command(name='draw',description='Get a random OC drawing prompt. This command does not award chudlets.')
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1,10.0,key=lambda i:i.user.id)
+async def draw(interaction:discord.Interaction):
+    if not DRAW_POOL:
+        return await interaction.response.send_message('The drawing pool is empty. Ask the bot owner to add images to draw_pool.json.',ephemeral=True)
+    choice=random.choice(DRAW_POOL)
+    embed=discord.Embed(description='Draw this OC (Coloured, any) for 7500 Chudlets!')
+    embed.set_image(url=choice['image_url'])
+    embed.set_footer(text='Submit your drawing to the server’s art reviewer. Chudlets are awarded manually after approval.')
+    await interaction.response.send_message(embed=embed)
 
 
 @bot.tree.error

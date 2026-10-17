@@ -39,9 +39,12 @@ class EconomyTests(unittest.TestCase):
         self.assertFalse(eco.sell(self.db,1,1,10,100))
 
     def test_variants_same_base_and_set_once(self):
-        self.assertEqual([self.claim(rarity=r)[1] for r in eco.RARITIES],[1000,0,0,0,1000,5000])
+        rewards=[self.claim(rarity=r)[1] for r in eco.RARITIES]
+        self.assertEqual(rewards[0],1000)
+        self.assertEqual(rewards[-1],5000)
+        self.assertEqual(sum(rewards),9000)
         self.claim(rarity='obsidian')
-        self.assertEqual(eco.balance(self.db,1,1),7000)
+        self.assertEqual(eco.balance(self.db,1,1),9000)
         with self.db:
             self.db.execute("DELETE FROM cards WHERE rarity='obsidian'")
         self.assertEqual(self.claim(rarity='obsidian')[1],0)
@@ -96,7 +99,7 @@ class EconomyTests(unittest.TestCase):
     def test_set_completed_by_trade(self):
         for rarity in list(eco.RARITIES)[:-1]:
             self.claim(rarity=rarity)
-        want=self.claim(2,'cat','obsidian')[0]
+        want=self.claim(2,'cat',list(eco.RARITIES)[-1])[0]
         give=self.claim(1,'dog')[0]
         with self.db:
             self.assertEqual(eco.exchange(self.db,1,1,2,give,want)[0],5100)
@@ -234,6 +237,89 @@ class AdminTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(await bot_module.spawn(1,channel,bot_module.CATALOG['Canada'],'gold'))
         finally:
             bot_module.db=old;db.close()
+
+
+class NewFeatureTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.db=new_db();eco.migrate(self.db)
+        self.old_definitions=eco.SET_DEFINITIONS
+        eco.SET_DEFINITIONS={}
+
+    async def asyncTearDown(self):
+        eco.SET_DEFINITIONS=self.old_definitions
+        self.db.close()
+
+    async def test_transfer_atomic_replay_and_no_minting(self):
+        with self.db:
+            eco.credit(self.db,1,1,1000)
+            self.assertFalse(eco.transfer(self.db,1,1,2,1001,1))
+            self.assertFalse(eco.transfer(self.db,1,1,1,100,2))
+            self.assertFalse(eco.transfer(self.db,1,1,2,0,3))
+            self.assertTrue(eco.transfer(self.db,1,1,2,400,4))
+            self.assertTrue(eco.transfer(self.db,1,1,2,400,4))
+            self.assertFalse(eco.transfer(self.db,1,1,3,400,4))
+            self.assertFalse(eco.transfer(self.db,2,1,2,100,5))
+        self.assertEqual(eco.balance(self.db,1,1),600)
+        self.assertEqual(eco.balance(self.db,1,2),400)
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM currency_transfers').fetchone()[0],1)
+
+    async def test_sets_claim_and_recompletion(self):
+        eco.configure_sets(self.db,[{'id':'pets','name':'Pets'}],[{'id':'cat','sets':['pets']},{'id':'dog','sets':['pets']}])
+        with self.db:
+            self.assertEqual(eco.award_claim(self.db,1,1,'cat','normal')[1],1000)
+            card,reward=eco.award_claim(self.db,1,1,'dog','gold')
+            self.assertEqual(reward,11000)
+            self.assertEqual(eco.card_set_bonus(self.db,1,1),0)
+            self.assertEqual(eco.card_set_bonus(self.db,2,1),0)
+            self.db.execute('DELETE FROM cards WHERE id=?',(card,))
+            self.assertEqual(eco.award_claim(self.db,1,1,'dog','silver')[1],0)
+        self.assertEqual(self.db.execute('SELECT COUNT(*) FROM completed_card_sets').fetchone()[0],1)
+
+    async def test_sets_trade_and_legacy_existing_ownership(self):
+        eco.configure_sets(self.db,[{'id':'pets','name':'Pets'}],[{'id':'cat','sets':['pets']},{'id':'dog','sets':['pets']}])
+        with self.db:
+            eco.award_claim(self.db,1,1,'cat','normal')
+            give,_=eco.award_claim(self.db,1,1,'bird','normal')
+            want,_=eco.award_claim(self.db,1,2,'dog','normal')
+            self.assertEqual(eco.exchange(self.db,1,1,2,give,want)[0],10100)
+        eco.configure_sets(self.db,[{'id':'birds','name':'Birds'}],[{'id':'bird','sets':['birds']}])
+        with self.db:
+            self.assertEqual(eco.card_set_bonus(self.db,1,2),10000)
+            self.assertEqual(eco.card_set_bonus(self.db,1,2),0)
+
+    async def test_set_config_errors_empty_set_no_reward(self):
+        with self.assertRaises(ValueError):
+            eco.configure_sets(self.db,[],[{'id':'cat','sets':['missing']}])
+        with self.assertRaises(ValueError):
+            eco.configure_sets(self.db,[{'id':'x','name':'X'},{'id':'x','name':'Y'}],[])
+        eco.configure_sets(self.db,[{'id':'empty','name':'Empty'}],[])
+        with self.db:
+            self.assertEqual(eco.card_set_bonus(self.db,1,1),0)
+
+    async def test_draw_no_payment_and_empty_pool(self):
+        old_db,old_pool=bot_module.db,bot_module.DRAW_POOL
+        bot_module.db=self.db
+        try:
+            i=S(guild_id=1,user=S(id=1),response=S(send_message=AsyncMock()))
+            bot_module.DRAW_POOL=[]
+            await bot_module.draw.callback(i)
+            self.assertTrue(i.response.send_message.call_args.kwargs['ephemeral'])
+            bot_module.DRAW_POOL=[{'image_url':'https://example.com/oc.png'}]
+            await bot_module.draw.callback(i)
+            embed=i.response.send_message.call_args.kwargs['embed']
+            self.assertEqual(embed.description,'Draw this OC (Coloured, any) for 7500 Chudlets!')
+            self.assertEqual(embed.image.url,'https://example.com/oc.png')
+            self.assertEqual(eco.balance(self.db,1,1),0)
+        finally:
+            bot_module.db,bot_module.DRAW_POOL=old_db,old_pool
+
+    async def test_new_variant_odds_and_image_overrides(self):
+        self.assertEqual(len(eco.RARITIES),16)
+        self.assertAlmostEqual(sum(eco.RARITIES.values()),100)
+        self.assertEqual(eco.RARITIES['silver'],10)
+        item={'image_url':'https://example.com/base.png','rarity_images':{'glitch':'https://example.com/glitch.png'}}
+        self.assertEqual(bot_module.image_for(item,'glitch'),'https://example.com/glitch.png')
+        self.assertEqual(bot_module.image_for(item,'pearl'),'https://example.com/base.png')
 
 
 if __name__=='__main__':
