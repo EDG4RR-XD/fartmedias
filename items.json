@@ -15,7 +15,6 @@
       "copper": 600,
       "ruby": 700,
       "sapphire": 800,
-      
       "holographic": 1000,
       "inverted": 1500,
       "glitch": 2000
@@ -26,7 +25,13 @@
       "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Golddweller",
       "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Emeralddweller",
       "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Diamonddweller",
-      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/obdweller"
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/obdweller",
+      "copper": "https://file.garden/ZjgOFU74SkXuNmJS/CopperDweller",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/RubyDweller",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/SapphDweller",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/HoloDweller",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Inverteddweller",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/GlitchDweller"
     }
   },
   {
@@ -56,7 +61,13 @@
       "gold": "https://file.garden/ZjgOFU74SkXuNmJS/GoldT.png",
       "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/EmeraldT",
       "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/DiamondT",
-      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/ObT"
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/ObT",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/CopperT",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/RubyThistle",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/SapphireThistle",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/HoloThistle",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/InvertedT",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/GlitchT"
     }
   },
   {
@@ -86,7 +97,13 @@
       "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Goldd",
       "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Emeraldd",
       "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/DiamondD",
-      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Obd"
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Obd",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/copperd",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/RubyD",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/SapphD",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/HoloD",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Invertedd",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/GlitchD"
     }
   },
   {
@@ -116,7 +133,13 @@
       "gold": "https://file.garden/ZjgOFU74SkXuNmJS/GoldG",
       "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/EmeraldG",
       "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/DiamondG",
-      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/ObG"
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/ObG",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/CopperG",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/RubyG",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/SapphG",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/HoloG",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/IngertedG",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/GliitchG"
     }
   }
 ]
