@@ -4,7 +4,7 @@
     "name": "Seadweller",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Normaldweller",
     "weight": 1,
-    "sets": ["deli"],
+    "sets": ["Deli"],
     "sell_value": 10,
     "rarity_sell_values": {
       "normal": 50,
