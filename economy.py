@@ -2,9 +2,22 @@
 import json
 
 RARITIES = {
-    'normal': 74, 'silver': 10, 'gold': 5, 'emerald': 3, 'diamond': 2, 'obsidian': 1,
-    'bronze': 2, 'copper': 1, 'rose_quartz': 0.5, 'ruby': 0.4, 'sapphire': 0.3,
-    'amethyst': 0.25, 'pearl': 0.2, 'holographic': 0.15, 'rainbow': 0.12, 'glitch': 0.08,
+    'normal': 50,
+    'silver': 6,
+    'gold': 5.5,
+    'emerald': 5,
+    'diamond': 4.5,
+    'obsidian': 4,
+    'bronze': 3.8,
+    'copper': 3.5,
+    'rose_quartz': 3.2,
+    'ruby': 3,
+    'sapphire': 2.8,
+    'amethyst': 2.5,
+    'pearl': 2.2,
+    'holographic': 1.8,
+    'rainbow': 1.2,
+    'glitch': 1,
 }
 SET_DEFINITIONS = {}
 SHOP = {
