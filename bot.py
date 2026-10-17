@@ -580,6 +580,80 @@ async def draw(interaction:discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
+def gift_owned_card(guild,sender,recipient,card_id):
+    if sender==recipient:
+        return None
+    row=db.execute('SELECT * FROM cards WHERE guild=? AND owner=? AND id=?',(guild,sender,card_id)).fetchone()
+    if not row:
+        return None
+    db.execute('UPDATE cards SET owner=? WHERE guild=? AND owner=? AND id=?',(recipient,guild,sender,card_id))
+    db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)',(guild,recipient,row['country']))
+    reward=eco.set_bonus(db,guild,recipient,row['country'])+eco.card_set_bonus(db,guild,recipient)
+    return row['country'],row['rarity'],reward
+
+
+@bot.tree.command(name='givecard',description='Give one of your cards to another player for free.')
+@app_commands.guild_only()
+async def givecard(interaction:discord.Interaction,card_id:int,user:discord.Member):
+    if user.bot or user.id==interaction.user.id:
+        return await interaction.response.send_message('Choose another human player.',ephemeral=True)
+    with db:
+        result=gift_owned_card(interaction.guild_id,interaction.user.id,user.id,card_id)
+    if result is None:
+        return await interaction.response.send_message('You do not own that card in this server. Check /collection.',ephemeral=True)
+    item,rarity,reward=result
+    text=f"Gave card #{card_id}, {discord.utils.escape_markdown(item_info(item)['name'])} ({rarity}), to {discord.utils.escape_markdown(user.display_name)}."
+    if reward:
+        text+=f' The recipient earned {reward:,} chudlets for collection completion.'
+    await interaction.response.send_message(text,ephemeral=True)
+
+
+class SellAllView(discord.ui.View):
+    def __init__(self,guild,owner,quoted):
+        super().__init__(timeout=60)
+        self.guild,self.owner,self.quoted=guild,owner,quoted
+        self.finished=False
+
+    @discord.ui.button(label='Confirm: sell all cards',style=discord.ButtonStyle.danger)
+    async def confirm(self,interaction,button):
+        if interaction.user.id != self.owner:
+            return await interaction.response.send_message('This sale belongs to another player.',ephemeral=True)
+        if self.finished:
+            return await interaction.response.send_message('This sale has already been handled.',ephemeral=True)
+        self.finished=True
+        with db:
+            current=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? ORDER BY id',(self.guild,self.owner)).fetchall()
+            current_quote=[(r['id'],sale_price(item_info(r['country']),r['rarity'])) for r in current]
+            valid=current_quote==self.quoted
+            if valid:
+                total=sum(price for _,price in self.quoted)
+                db.execute('DELETE FROM cards WHERE guild=? AND owner=?',(self.guild,self.owner))
+                eco.credit(db,self.guild,self.owner,total)
+        self.stop()
+        await interaction.response.edit_message(content=f'Sold {len(self.quoted)} cards for {total:,} chudlets.' if valid else 'Sale cancelled: your collection or its prices changed. Run /sellall again for a new quote.',view=None)
+
+    @discord.ui.button(label='Cancel',style=discord.ButtonStyle.secondary)
+    async def cancel(self,interaction,button):
+        if interaction.user.id != self.owner:
+            return await interaction.response.send_message('This sale belongs to another player.',ephemeral=True)
+        if self.finished:
+            return await interaction.response.send_message('This sale has already been handled.',ephemeral=True)
+        self.finished=True
+        self.stop()
+        await interaction.response.edit_message(content='Sale cancelled. No cards sold.',view=None)
+
+
+@bot.tree.command(name='sellall',description='Sell every card you own in this server, after confirmation.')
+@app_commands.guild_only()
+async def sellall(interaction:discord.Interaction):
+    rows=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? ORDER BY id',(interaction.guild_id,interaction.user.id)).fetchall()
+    if not rows:
+        return await interaction.response.send_message('You have no cards to sell in this server.',ephemeral=True)
+    quoted=[(r['id'],sale_price(item_info(r['country']),r['rarity'])) for r in rows]
+    total=sum(price for _,price in quoted)
+    await interaction.response.send_message(f'Sell ALL {len(rows)} of your cards, including every rarity and your last copies, for {total:,} chudlets? This removes your entire card collection in this server. Shop items are unaffected. Confirm within 60 seconds.',view=SellAllView(interaction.guild_id,interaction.user.id,quoted),ephemeral=True)
+
+
 @bot.tree.error
 async def command_error(interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
