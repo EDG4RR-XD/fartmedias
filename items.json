@@ -146,7 +146,7 @@
    {
     "id": "Deli2",
     "name": "Green Delicious Variant 2",
-    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017145121.png”,
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017145121.png",
     "weight": 10,
     "sets": ["Deli"],
     "sell_value": 50,
@@ -220,7 +220,7 @@
    {
     "id": "Deli4",
     "name": "Green Delicious Variant 4",
-    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/129506696_s2FVsz7HWGdRHJu.png”,
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/129506696_s2FVsz7HWGdRHJu.png",
     "weight": 10,
     "sets": ["Deli"],
     "sell_value": 50,
