@@ -3,7 +3,7 @@ import json
 
 RARITIES = {
     'normal': 50,
-    'silver': 8,
+    'silver': 11,
     'gold': 7,
     'emerald': 6,
     'diamond': 5.5,
@@ -11,7 +11,6 @@ RARITIES = {
     'copper': 4.5,
     'ruby': 4,
     'sapphire': 3.5,
-    'amethyst': 3,
     'holographic': 2,
     'inverted': 1.5,
     'glitch': 1,
