@@ -4,13 +4,21 @@
     "name": "Seadweller",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Normaldweller",
     "weight": 1,
-    "sell_value": 100,
+    "sell_value": 10,
     "rarity_sell_values": {
-      "silver": 200,
-      "gold": 400,
-      "emerald": 600,
-      "diamond": 800,
-      "obsidian": 1000
+      "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "amethyst": 900,
+      "holographic": 1000,
+      "inverted": 1500,
+      "glitch": 200
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Normaldweller",
@@ -21,19 +29,25 @@
       "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/obdweller"
     }
   },
-
-    {
+  {
     "id": "Thistle",
     "name": "Thistle",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/NormalT",
     "weight": 10,
-    "sell_value": 100,
+    "sell_value": 50,
     "rarity_sell_values": {
-      "silver": 200,
-      "gold": 400,
-      "emerald": 600,
-      "diamond": 800,
-      "obsidian": 1000
+       "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "amethyst": 900,
+      "holographic": 1000,
+      "inverted": 1500,
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/NormalT",
@@ -44,19 +58,25 @@
       "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/ObT"
     }
   },
-
-   {
+  {
     "id": "Deli",
     "name": "Green Delicious",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/NormalD",
     "weight": 10,
-    "sell_value": 100,
+    "sell_value": 50,
     "rarity_sell_values": {
-      "silver": 200,
-      "gold": 400,
-      "emerald": 600,
-      "diamond": 800,
-      "obsidian": 1000
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "amethyst": 900,
+      "holographic": 1000,
+      "inverted": 1500,
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/NormalD",
@@ -67,19 +87,25 @@
       "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Obd"
     }
   },
-
-     {
+  {
     "id": "Gamble",
     "name": "Gamble",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/NormalG",
     "weight": 10,
-    "sell_value": 100,
+    "sell_value": 50,
     "rarity_sell_values": {
-      "silver": 200,
-      "gold": 400,
-      "emerald": 600,
-      "diamond": 800,
-      "obsidian": 1000
+       "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "amethyst": 900,
+      "holographic": 1000,
+      "inverted": 1500,
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/NormalG",
