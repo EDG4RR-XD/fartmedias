@@ -18,7 +18,7 @@
       "amethyst": 900,
       "holographic": 1000,
       "inverted": 1500,
-      "glitch": 200
+      "glitch": 2000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Normaldweller",
@@ -48,6 +48,7 @@
       "amethyst": 900,
       "holographic": 1000,
       "inverted": 1500,
+       "glitch": 2000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/NormalT",
@@ -77,6 +78,7 @@
       "amethyst": 900,
       "holographic": 1000,
       "inverted": 1500,
+       "glitch": 2000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/NormalD",
@@ -106,6 +108,7 @@
       "amethyst": 900,
       "holographic": 1000,
       "inverted": 1500,
+       "glitch": 2000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/NormalG",
