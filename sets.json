@@ -1,1 +1,6 @@
-[]
+[
+  {"id": "Deli", "name": "Deli"},
+  {"id": "Thistle", "name": "Thistle"},
+  {"id": "Seadweller", "name": "Seadweller"},
+  {"id": "Gamble", "name": "Gamble"}
+]
