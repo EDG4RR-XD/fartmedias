@@ -354,3 +354,10 @@ Note: This feature needs outbound access to the image URL. If fetching an image 
 
 ### Rigged flip modifiers
 `/spawnrigged` and `/spawnspamrigged` accept optional `horizontal_flip` and `vertical_flip` Boolean options. `True` forces the modifier, `False` prevents it, and leaving it unspecified retains the normal random chance (1% horizontal and 0.1% vertical). Both can be `True` simultaneously. `/spawnspamrigged` persists its flip settings during its five-minute session across restarts. `/cardshop` continues to offer unflipped cards only.
+
+### Flip image orientation and troubleshooting
+
+- `vertical_flip:True` reflects the image across its horizontal X-axis (top becomes bottom).
+- `horizontal_flip:True` reflects across its vertical Y-axis (left becomes right).
+- Setting both rotates the image 180 degrees.
+- If the remote host blocks image downloads or sends a bad image, the bot displays an image-unavailable warning instead of pretending an unchanged picture has been flipped. The card keeps its flip flags; `/view` retries the image.

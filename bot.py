@@ -152,9 +152,9 @@ def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False):
     with Image.open(io.BytesIO(data)) as image:
         image = ImageOps.exif_transpose(image)
         if flip_horizontal:
-            image = ImageOps.mirror(image)
+            image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
         if flip_vertical:
-            image = ImageOps.flip(image)
+            image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)  # Reflect across X-axis
         output = io.BytesIO()
         image.save(output, format='PNG')
         output.seek(0)
@@ -176,8 +176,9 @@ async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=
         transformed = await asyncio.to_thread(transformed_image_bytes, payload, flip_horizontal, flip_vertical)
         return f'attachment://{filename}', discord.File(transformed, filename=filename)
     except Exception:
-        logging.exception('Could not fetch or flip image %s', image)
-        return image, None
+        # A non-flipped fallback must never masquerade as a flipped collectible.
+        logging.exception('Image transform failed for %s (horizontal=%s, vertical=%s)', image, flip_horizontal, flip_vertical)
+        return None, None
 
 
 async def set_card_embed_image(embed, item, rarity, flip_horizontal=False, flip_vertical=False, *, thumbnail=False, filename='card.png'):
@@ -187,6 +188,8 @@ async def set_card_embed_image(embed, item, rarity, flip_horizontal=False, flip_
             embed.set_thumbnail(url=image_ref)
         else:
             embed.set_image(url=image_ref)
+    elif flip_horizontal or flip_vertical:
+        embed.add_field(name='Image temporarily unavailable', value='The source image could not be flipped. The flip modifier is still saved on this card. Use /view later to retry.', inline=False)
     return attachment
 
 
