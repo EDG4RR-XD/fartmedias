@@ -335,3 +335,22 @@ Sold card IDs are stored in `recycled_ids` ordered by sale time and ID. The next
 
 ### Filling deleted card ID gaps
 New claimed cards and `/cardshop` purchases now use the lowest vacant positive card ID from the bot's historical ID range before assigning a higher number. This also repairs gaps from manual deletions and older versions, even when no sale was recorded. IDs held by auction listings are reserved. Reused IDs get the new card's identity and rarity. Existing owned cards keep their IDs. The bot needs the existing `flags.db` preserved on its Railway `/data` volume; replacing the database loses its historical high-water mark.
+
+### `/spawnspamrigged` (administrator)
+`/spawnspamrigged rarity:<optional> card:<optional> set:<optional>` starts a five-minute spawnspam session. Any omitted filter is unrestricted. Choosing a set limits the pool to that set's cards; choosing a card limits it to that card; choosing a rarity forces that rarity. All supplied filters must match. The bot spawns a matching card as soon as a previous card is claimed and announces when the session ends. Running `/spawnspam` resets the session to unrestricted spawns; running `/spawnspamrigged` again replaces the filters and restarts five minutes. Sessions and filters are stored in the existing persistent database (`DATA_DIR/flags.db`).
+
+## Spawn-only flip modifiers
+
+Every spawned card first receives its normal base rarity. Two separate modifier rolls then apply:
+
+- **Horizontal Flip:** 1% chance (left/right mirror).
+- **Vertical Flip:** 0.1% chance (top/bottom mirror).
+
+The two rolls are independent, so both can appear together (0.001% chance, approximately 1 in 100,000 spawns). They work on every base rarity, including manual and rigged spawns. The bot downloads the configured rarity image and flips it automatically using Pillow. No flipped images need to be uploaded. A flip is saved on the card and is preserved when transferring or auctioning it. `/view` re-creates the flipped image.
+
+`/cardshop` always sells unflipped cards, with no chance to acquire either flip modifier. Players can still obtain flipped cards through trades, gifts, or auction listings.
+
+Note: This feature needs outbound access to the image URL. If fetching an image fails, the bot logs the failure and uses the original picture instead; the card's saved modifiers are retained. Existing card data is migrated in place with neither flip flag set. Back up `/data/flags.db` before deploying a changed database schema.
+
+### Rigged flip modifiers
+`/spawnrigged` and `/spawnspamrigged` accept optional `horizontal_flip` and `vertical_flip` Boolean options. `True` forces the modifier, `False` prevents it, and leaving it unspecified retains the normal random chance (1% horizontal and 0.1% vertical). Both can be `True` simultaneously. `/spawnspamrigged` persists its flip settings during its five-minute session across restarts. `/cardshop` continues to offer unflipped cards only.

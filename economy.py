@@ -15,6 +15,8 @@ RARITIES = {
     'inverted': 1.5,
     'glitch': 1,
 }
+HORIZONTAL_FLIP_CHANCE = 0.01
+VERTICAL_FLIP_CHANCE = 0.001
 SET_DEFINITIONS = {}
 SHOP = {
     'free_ych': ('FREE YCH', 15000),
@@ -31,8 +33,12 @@ def migrate(db):
         columns = {r['name'] for r in db.execute(f'PRAGMA table_info({table})')}
         if 'rarity' not in columns:
             db.execute(f"ALTER TABLE {table} ADD COLUMN rarity TEXT NOT NULL DEFAULT 'normal'")
+        if 'flip_horizontal' not in columns:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN flip_horizontal INTEGER NOT NULL DEFAULT 0")
+        if 'flip_vertical' not in columns:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN flip_vertical INTEGER NOT NULL DEFAULT 0")
     db.executescript('''
-    CREATE TABLE IF NOT EXISTS card_purchases(request TEXT PRIMARY KEY, guild INTEGER, owner INTEGER, card_id INTEGER, item TEXT, rarity TEXT, price INTEGER, earned INTEGER, created_at REAL);
+    CREATE TABLE IF NOT EXISTS card_purchases(request TEXT PRIMARY KEY, guild INTEGER, owner INTEGER, card_id INTEGER, item TEXT, rarity TEXT, flip_horizontal INTEGER NOT NULL DEFAULT 0, flip_vertical INTEGER NOT NULL DEFAULT 0, price INTEGER, earned INTEGER, created_at REAL);
     CREATE TABLE IF NOT EXISTS set_definitions(id TEXT PRIMARY KEY, name TEXT, members TEXT);
     CREATE TABLE IF NOT EXISTS completed_card_sets(guild INTEGER, owner INTEGER, set_id TEXT, PRIMARY KEY(guild,owner,set_id));
     CREATE TABLE IF NOT EXISTS currency_transfers(request TEXT PRIMARY KEY, guild INTEGER, sender INTEGER, recipient INTEGER, amount INTEGER, created_at REAL);
@@ -47,8 +53,26 @@ def migrate(db):
     CREATE TABLE IF NOT EXISTS item_extras(id TEXT PRIMARY KEY, definition TEXT);
     CREATE TABLE IF NOT EXISTS recycled_ids(id INTEGER PRIMARY KEY, sold_at REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS sell_locks(guild INTEGER, owner INTEGER, card_id INTEGER PRIMARY KEY);
-    CREATE TABLE IF NOT EXISTS auction_listings(card_id INTEGER PRIMARY KEY, guild INTEGER NOT NULL, seller INTEGER NOT NULL, item TEXT NOT NULL, rarity TEXT NOT NULL, price INTEGER NOT NULL, created_at REAL NOT NULL);
+    CREATE TABLE IF NOT EXISTS auction_listings(card_id INTEGER PRIMARY KEY, guild INTEGER NOT NULL, seller INTEGER NOT NULL, item TEXT NOT NULL, rarity TEXT NOT NULL, flip_horizontal INTEGER NOT NULL DEFAULT 0, flip_vertical INTEGER NOT NULL DEFAULT 0, price INTEGER NOT NULL, created_at REAL NOT NULL);
     ''')
+    purchase_cols = {r['name'] for r in db.execute('PRAGMA table_info(card_purchases)')}
+    if purchase_cols and 'flip_horizontal' not in purchase_cols:
+        db.executescript('''
+        ALTER TABLE card_purchases RENAME TO card_purchases_old;
+        CREATE TABLE card_purchases(request TEXT PRIMARY KEY, guild INTEGER, owner INTEGER, card_id INTEGER, item TEXT, rarity TEXT, flip_horizontal INTEGER NOT NULL DEFAULT 0, flip_vertical INTEGER NOT NULL DEFAULT 0, price INTEGER, earned INTEGER, created_at REAL);
+        INSERT INTO card_purchases(request,guild,owner,card_id,item,rarity,price,earned,created_at)
+        SELECT request,guild,owner,card_id,item,rarity,price,earned,created_at FROM card_purchases_old;
+        DROP TABLE card_purchases_old;
+        ''')
+    listing_cols = {r['name'] for r in db.execute('PRAGMA table_info(auction_listings)')}
+    if listing_cols and 'flip_horizontal' not in listing_cols:
+        db.executescript('''
+        ALTER TABLE auction_listings RENAME TO auction_listings_old;
+        CREATE TABLE auction_listings(card_id INTEGER PRIMARY KEY, guild INTEGER NOT NULL, seller INTEGER NOT NULL, item TEXT NOT NULL, rarity TEXT NOT NULL, flip_horizontal INTEGER NOT NULL DEFAULT 0, flip_vertical INTEGER NOT NULL DEFAULT 0, price INTEGER NOT NULL, created_at REAL NOT NULL);
+        INSERT INTO auction_listings(card_id,guild,seller,item,rarity,price,created_at)
+        SELECT card_id,guild,seller,item,rarity,price,created_at FROM auction_listings_old;
+        DROP TABLE auction_listings_old;
+        ''')
     # Old inventory establishes history, without a surprise retrospective payout.
     if not db.execute("SELECT 1 FROM metadata WHERE key='economy_initialized'").fetchone():
         with db:
@@ -76,7 +100,7 @@ def set_bonus(db, guild, owner, item):
     return 0
 
 
-def allocate_card_id(db, guild, owner, item, rarity):
+def allocate_card_id(db, guild, owner, item, rarity, flip_horizontal=0, flip_vertical=0):
     ###Fill the lowest missing historical ID, without taking auction escrow IDs.
 
     # sqlite_sequence preserves the high-water mark across deleted card rows.
@@ -103,18 +127,18 @@ def allocate_card_id(db, guild, owner, item, rarity):
     else:
         next_id = None
     if next_id is None:
-        card_id = db.execute('INSERT INTO cards(guild,owner,country,rarity) VALUES(?,?,?,?)',
-                             (guild,owner,item,rarity)).lastrowid
+        card_id = db.execute('INSERT INTO cards(guild,owner,country,rarity,flip_horizontal,flip_vertical) VALUES(?,?,?,?,?,?)',
+                             (guild,owner,item,rarity,int(bool(flip_horizontal)),int(bool(flip_vertical)))).lastrowid
     else:
         card_id = next_id
-        db.execute('INSERT INTO cards(id,guild,owner,country,rarity) VALUES(?,?,?,?,?)',
-                   (card_id,guild,owner,item,rarity))
+        db.execute('INSERT INTO cards(id,guild,owner,country,rarity,flip_horizontal,flip_vertical) VALUES(?,?,?,?,?,?,?)',
+                   (card_id,guild,owner,item,rarity,int(bool(flip_horizontal)),int(bool(flip_vertical))))
     db.execute('DELETE FROM recycled_ids WHERE id=?', (card_id,))
     return card_id
 
 
-def award_claim(db, guild, owner, item, rarity):
-    card_id = allocate_card_id(db,guild,owner,item,rarity)
+def award_claim(db, guild, owner, item, rarity, flip_horizontal=0, flip_vertical=0):
+    card_id = allocate_card_id(db,guild,owner,item,rarity,flip_horizontal,flip_vertical)
     reward = 0
     if db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)', (guild,owner,item)).rowcount:
         reward += 1000
@@ -248,23 +272,23 @@ def card_set_bonus(db,guild,owner):
     return earned
 
 
-def buy_card(db,guild,owner,item,rarity,price,request):
+def buy_card(db,guild,owner,item,rarity,price,request,flip_horizontal=0,flip_vertical=0):
     import time
     if isinstance(price,bool) or not isinstance(price,int) or price<0 or rarity not in RARITIES:
         raise ValueError('Invalid purchase price or rarity')
     previous=db.execute('SELECT * FROM card_purchases WHERE request=?',(str(request),)).fetchone()
     if previous:
-        if (previous['guild'],previous['owner'],previous['item'],previous['rarity'],previous['price'])!=(guild,owner,item,rarity,price):
+        if (previous['guild'],previous['owner'],previous['item'],previous['rarity'],previous['price'],previous['flip_horizontal'],previous['flip_vertical'])!=(guild,owner,item,rarity,price,int(bool(flip_horizontal)),int(bool(flip_vertical))):
             return None
-        return previous['card_id'],previous['earned']
+        return previous['card_id'],previous['earned'],previous['flip_horizontal'],previous['flip_vertical']
     credit(db,guild,owner,0)
     if not db.execute('UPDATE wallets SET amount=amount-? WHERE guild=? AND owner=? AND amount>=?',(price,guild,owner,price)).rowcount:
         return None
-    card_id=allocate_card_id(db,guild,owner,item,rarity)
+    card_id=allocate_card_id(db,guild,owner,item,rarity,flip_horizontal,flip_vertical)
     db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)',(guild,owner,item))
     earned=set_bonus(db,guild,owner,item)+card_set_bonus(db,guild,owner)
-    db.execute('INSERT INTO card_purchases VALUES(?,?,?,?,?,?,?,?,?)',(str(request),guild,owner,card_id,item,rarity,price,earned,time.time()))
-    return card_id,earned
+    db.execute('INSERT INTO card_purchases VALUES(?,?,?,?,?,?,?,?,?,?,?)',(str(request),guild,owner,card_id,item,rarity,int(bool(flip_horizontal)),int(bool(flip_vertical)),price,earned,time.time()))
+    return card_id,earned,int(bool(flip_horizontal)),int(bool(flip_vertical))
 
 
 def mass_credit(db,guild,owner):
