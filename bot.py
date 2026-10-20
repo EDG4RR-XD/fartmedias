@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS cards(id INTEGER PRIMARY KEY AUTOINCREMENT, guild INT
 ''')
 eco.migrate(db)
 with db:
+    db.execute('CREATE TABLE IF NOT EXISTS claim_turns(guild INTEGER PRIMARY KEY, owner INTEGER NOT NULL)')
+    db.execute('CREATE TABLE IF NOT EXISTS bounties(guild INTEGER, owner INTEGER, card TEXT, rarity TEXT, PRIMARY KEY(guild,owner))')
+with db:
     if not db.execute("SELECT 1 FROM metadata WHERE key='five_minute_schedule'").fetchone():
         db.execute('UPDATE settings SET next_spawn=MIN(next_spawn,?)', (time.time()+300,))
         db.execute("INSERT INTO metadata VALUES('five_minute_schedule','1')")
@@ -150,12 +153,18 @@ async def on_message(message):
                          (message.guild.id, message.channel.id, time.time())).fetchone()
         if not row or message.id <= row['message']:
             return
+        last_claim = db.execute('SELECT owner FROM claim_turns WHERE guild=?', (message.guild.id,)).fetchone()
+        if last_claim and last_claim['owner'] == message.author.id:
+            await message.channel.send("Users can't claim two cards in a row!")
+            return
         with db:
             claimed = db.execute('DELETE FROM spawns WHERE guild=? AND message=?',
                                  (message.guild.id, row['message'])).rowcount
             if not claimed:
                 return
             card_id, earned = eco.award_claim(db, message.guild.id, message.author.id, row['country'], row['rarity'])
+            db.execute('DELETE FROM bounties WHERE guild=? AND owner=? AND card=? AND rarity=?', (message.guild.id,message.author.id,row['country'],row['rarity']))
+            db.execute('INSERT INTO claim_turns VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET owner=excluded.owner', (message.guild.id, message.author.id))
     item = item_info(row['country'])
     # Ownership is committed before any Discord API calls.
     try:
@@ -186,22 +195,36 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None):
     with db:
         db.execute('UPDATE settings SET next_spawn=? WHERE guild=?',
                    (time.time() + random.randint(SPAWN_MIN_SECONDS, SPAWN_MAX_SECONDS), guild_id))
-    item = chosen_item if chosen_item is not None else random.choices(ACTIVE_ITEMS, weights=[i['weight'] for i in ACTIVE_ITEMS])[0]
-    rarity = chosen_rarity if chosen_rarity is not None else random.choices(list(eco.RARITIES), weights=list(eco.RARITIES.values()))[0]
+    pool=bounty_spawn_pool(guild_id,chosen_item,chosen_rarity)
+    if not pool:
+        raise ValueError('No positive spawn weights configured')
+    item,rarity,_=random.choices(pool,weights=[pair[2] for pair in pool])[0]
+    holders=[r['owner'] for r in db.execute('SELECT owner FROM bounties WHERE guild=? AND card=? AND rarity=? ORDER BY owner',(guild_id,item['id'],rarity))]
+    lifetime=600 if holders else CLAIM_SECONDS
     embed = discord.Embed(title=item['name'], description=f"{rarity.title()} · Type **Claim** in this channel to collect this image.", color=0x79B86D)
     embed.set_image(url=image_for(item, rarity))
-    embed.set_footer(text=f'Expires in {CLAIM_SECONDS // 60} minutes.')
-    message = await channel.send(embed=embed)
+    embed.set_footer(text=f'Expires in {lifetime // 60} minutes.'+(' · Active bounty' if holders else ''))
+    first=holders[:50]
+    mentions=discord.AllowedMentions(everyone=False,roles=False,users=[discord.Object(id=user) for user in first],replied_user=False)
+    message=await channel.send(content=('Bounty target appeared! '+' '.join(f'<@{user}>' for user in first)) if first else None,embed=embed,allowed_mentions=mentions)
     spawned_at = time.time()
     with db:
-        db.execute('UPDATE settings SET next_spawn=? WHERE guild=?', (spawned_at + 300, guild_id))
+        db.execute('UPDATE settings SET next_spawn=? WHERE guild=?', (spawned_at + lifetime, guild_id))
         db.execute('INSERT OR REPLACE INTO spawns(guild,channel,message,country,expires,rarity) VALUES(?,?,?,?,?,?)',
-                   (guild_id, channel.id, message.id, item['id'], spawned_at + CLAIM_SECONDS, rarity))
+                   (guild_id, channel.id, message.id, item['id'], spawned_at + lifetime, rarity))
+    # Keep mention batches within Discord content/mention limits.
+    for offset in range(50,len(holders),50):
+        batch=holders[offset:offset+50]
+        try:
+            await channel.send('Bounty target appeared! '+' '.join(f'<@{user}>' for user in batch),allowed_mentions=discord.AllowedMentions(everyone=False,roles=False,users=[discord.Object(id=user) for user in batch],replied_user=False))
+        except discord.HTTPException:
+            logging.exception('Could not send an additional bounty notification')
     return True
 
 
 @tasks.loop(seconds=5)
 async def spawn_loop():
+    await expire_spawns()
     for row in db.execute('SELECT * FROM settings WHERE next_spawn<=?', (time.time(),)).fetchall():
         try:
             channel = bot.get_channel(row['channel']) or await bot.fetch_channel(row['channel'])
@@ -223,10 +246,10 @@ async def before_spawns():
 async def setup(interaction: discord.Interaction, channel: discord.TextChannel):
     perms = channel.permissions_for(interaction.guild.me)
     if not all((perms.view_channel, perms.send_messages, perms.embed_links, perms.read_message_history)):
-        return await interaction.response.send_message('Give me View Channel, Send Messages, Embed Links and Read Message History in that channel.', ephemeral=True)
+        return await interaction.response.send_message('Give me View Channel, Send Messages, Embed Links and Read Message History in that channel.', ephemeral=False)
     with db:
         db.execute('INSERT OR REPLACE INTO settings VALUES(?,?,?)', (interaction.guild_id, channel.id, time.time()))
-    await interaction.response.send_message(f'Spawns enabled in {channel.mention}. First spawn within 5 seconds, then every 5 minutes.', ephemeral=True)
+    await interaction.response.send_message(f'Spawns enabled in {channel.mention}. First spawn within 5 seconds, then every 5 minutes.', ephemeral=False)
 
 
 @bot.tree.command(name='spawn', description='Test a spawn (Manage Server required).')
@@ -235,11 +258,11 @@ async def setup(interaction: discord.Interaction, channel: discord.TextChannel):
 async def force_spawn(interaction: discord.Interaction):
     row = db.execute('SELECT channel FROM settings WHERE guild=?', (interaction.guild_id,)).fetchone()
     if not row:
-        return await interaction.response.send_message('Run /setup first.', ephemeral=True)
-    await interaction.response.defer(ephemeral=True)
+        return await interaction.response.send_message('Run /setup first.', ephemeral=False)
+    await interaction.response.defer(ephemeral=False)
     channel = bot.get_channel(row['channel']) or await bot.fetch_channel(row['channel'])
     done = await spawn(interaction.guild_id, channel)
-    await interaction.followup.send('Spawned.' if done else 'There is already an active image.', ephemeral=True)
+    await interaction.followup.send('Spawned.' if done else 'There is already an active image.', ephemeral=False)
 
 
 @bot.tree.command(name='collection', description='View a collection and card IDs for trading.')
@@ -252,7 +275,7 @@ async def collection(interaction: discord.Interaction, member: discord.Member = 
     lines = [f"#{r['id']} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {r['rarity']}" for r in rows]
     embed = discord.Embed(title=f'{member.display_name}’s collection', description='\n'.join(lines) or 'No cards on this page.')
     embed.set_footer(text=f'{total} cards · Page {page}/{max(1, (total+19)//20)} · Collections are per server')
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed, ephemeral=False)
 
 
 @bot.tree.command(name='view', description='View a claimed image by its card ID.')
@@ -260,7 +283,7 @@ async def collection(interaction: discord.Interaction, member: discord.Member = 
 async def view_card(interaction: discord.Interaction, card_id: int):
     row = db.execute('SELECT * FROM cards WHERE id=? AND guild=?', (card_id, interaction.guild_id)).fetchone()
     if not row:
-        return await interaction.response.send_message('No card with that ID in this server.', ephemeral=True)
+        return await interaction.response.send_message('No card with that ID in this server.', ephemeral=False)
     item = item_info(row['country'])
     embed = discord.Embed(title=item['name'], description=f"Card #{row['id']} · {row['rarity'].title()} · Owner: <@{row['owner']}>")
     image = image_for(item, row['rarity'])
@@ -268,7 +291,7 @@ async def view_card(interaction: discord.Interaction, card_id: int):
         embed.set_image(url=image)
     else:
         embed.set_footer(text='Legacy card: no image has been configured for this item.')
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed, ephemeral=False)
 
 
 class TradeView(discord.ui.View):
@@ -280,9 +303,9 @@ class TradeView(discord.ui.View):
     @discord.ui.button(label='Accept trade', style=discord.ButtonStyle.green)
     async def accept(self, interaction, button):
         if interaction.user.id != self.target:
-            return await interaction.response.send_message('Only the invited player can accept.', ephemeral=True)
+            return await interaction.response.send_message('Only the invited player can accept.', ephemeral=False)
         if self.finished:
-            return await interaction.response.send_message('This offer has already been handled.', ephemeral=True)
+            return await interaction.response.send_message('This offer has already been handled.', ephemeral=False)
         self.finished = True
         # Recheck both owners at acceptance, then exchange atomically.
         with db:
@@ -296,11 +319,11 @@ class TradeView(discord.ui.View):
 @app_commands.guild_only()
 async def trade(interaction: discord.Interaction, member: discord.Member, give_id: int, want_id: int):
     if member.bot or member.id == interaction.user.id:
-        return await interaction.response.send_message('Choose another human player.', ephemeral=True)
+        return await interaction.response.send_message('Choose another human player.', ephemeral=False)
     a = db.execute('SELECT * FROM cards WHERE id=? AND guild=? AND owner=?', (give_id, interaction.guild_id, interaction.user.id)).fetchone()
     b = db.execute('SELECT * FROM cards WHERE id=? AND guild=? AND owner=?', (want_id, interaction.guild_id, member.id)).fetchone()
     if not a or not b:
-        return await interaction.response.send_message('Check the card IDs and their owners using /collection.', ephemeral=True)
+        return await interaction.response.send_message('Check the card IDs and their owners using /collection.', ephemeral=False)
     view = TradeView(interaction.guild_id, interaction.user.id, member.id, give_id, want_id)
     await interaction.response.send_message(f"{member.display_name}: {interaction.user.display_name} offers #{give_id} ({discord.utils.escape_markdown(item_info(a['country'])['name'])}, {a['rarity']}) for your #{want_id} ({discord.utils.escape_markdown(item_info(b['country'])['name'])}, {b['rarity']}). Accept within 2 minutes. Otherwise the offer expires.", view=view)
 
@@ -308,7 +331,7 @@ async def trade(interaction: discord.Interaction, member: discord.Member, give_i
 @bot.tree.command(name='balance', description='Check your chudlets balance.')
 @app_commands.guild_only()
 async def wallet(interaction: discord.Interaction):
-    await interaction.response.send_message(f'You have {eco.balance(db,interaction.guild_id,interaction.user.id):,} chudlets.', ephemeral=True)
+    await interaction.response.send_message(f'You have {eco.balance(db,interaction.guild_id,interaction.user.id):,} chudlets.', ephemeral=False)
 
 
 @bot.tree.command(name='list', description='All cards, with owned cards above unowned cards.')
@@ -323,7 +346,7 @@ async def card_list(interaction: discord.Interaction, page: app_commands.Range[i
     no = sorted((i for i in ids if i not in owned), key=lambda i:item_info(i)['name'].casefold())
     pages = max(1,(max(len(yes),len(no))+2)//3)
     if page > pages:
-        return await interaction.response.send_message(f'There are {pages} pages.',ephemeral=True)
+        return await interaction.response.send_message(f'There are {pages} pages.',ephemeral=False)
     offset=(page-1)*3
     top=[]
     for i in yes[offset:offset+3]:
@@ -337,7 +360,7 @@ async def card_list(interaction: discord.Interaction, page: app_commands.Range[i
         embed.add_field(name='Owned, continued',value=text[:1024],inline=False)
     embed.add_field(name=f'Not owned ({len(no)})',value='\n'.join(bottom) or 'None on this page.',inline=False)
     embed.set_footer(text=f'Page {page}/{pages} · Use /list page:2 for the next page. Counts reflect current ownership.')
-    await interaction.response.send_message(embed=embed,ephemeral=True)
+    await interaction.response.send_message(embed=embed,ephemeral=False)
 
 
 class SellView(discord.ui.View):
@@ -348,7 +371,7 @@ class SellView(discord.ui.View):
     @discord.ui.button(label='Confirm sale',style=discord.ButtonStyle.danger)
     async def confirm(self,interaction,button):
         if interaction.user.id != self.owner:
-            return await interaction.response.send_message('This sale belongs to another player.',ephemeral=True)
+            return await interaction.response.send_message('This sale belongs to another player.',ephemeral=False)
         with db:
             sold=eco.sell(db,self.guild,self.owner,self.card_id,self.price)
         self.stop()
@@ -357,7 +380,7 @@ class SellView(discord.ui.View):
     @discord.ui.button(label='Cancel',style=discord.ButtonStyle.secondary)
     async def cancel(self,interaction,button):
         if interaction.user.id != self.owner:
-            return await interaction.response.send_message('This sale belongs to another player.',ephemeral=True)
+            return await interaction.response.send_message('This sale belongs to another player.',ephemeral=False)
         self.stop()
         await interaction.response.edit_message(content='Sale cancelled.',view=None)
 
@@ -367,10 +390,10 @@ class SellView(discord.ui.View):
 async def sell_card(interaction:discord.Interaction,card_id:int):
     row=db.execute('SELECT * FROM cards WHERE guild=? AND owner=? AND id=?',(interaction.guild_id,interaction.user.id,card_id)).fetchone()
     if not row:
-        return await interaction.response.send_message('You do not own that card in this server.',ephemeral=True)
+        return await interaction.response.send_message('You do not own that card in this server.',ephemeral=False)
     item=item_info(row['country'])
     price=sale_price(item,row['rarity'])
-    await interaction.response.send_message(f"Sell #{card_id}, {discord.utils.escape_markdown(item['name'])} ({row['rarity']}), for {price:,} chudlets? This removes that copy from your collection. Confirm within 60 seconds.",view=SellView(interaction.guild_id,interaction.user.id,card_id,price),ephemeral=True)
+    await interaction.response.send_message(f"Sell #{card_id}, {discord.utils.escape_markdown(item['name'])} ({row['rarity']}), for {price:,} chudlets? This removes that copy from your collection. Confirm within 60 seconds.",view=SellView(interaction.guild_id,interaction.user.id,card_id,price),ephemeral=False)
 
 
 class ShopSelect(discord.ui.Select):
@@ -380,13 +403,13 @@ class ShopSelect(discord.ui.Select):
 
     async def callback(self,interaction):
         if interaction.user.id != self.owner:
-            return await interaction.response.send_message('Open your own /shop.',ephemeral=True)
+            return await interaction.response.send_message('Open your own /shop.',ephemeral=False)
         product=self.values[0]
         with db:
             purchase=eco.buy(db,interaction.guild_id,self.owner,product)
         if purchase is None:
-            return await interaction.response.send_message('You do not have enough chudlets.',ephemeral=True)
-        await interaction.response.send_message(f'Bought {eco.SHOP[product][0]}. Item #{purchase}. Redeem with /use-item item_id:{purchase}. Balance: {eco.balance(db,interaction.guild_id,self.owner):,} chudlets.',ephemeral=True)
+            return await interaction.response.send_message('You do not have enough chudlets.',ephemeral=False)
+        await interaction.response.send_message(f'Bought {eco.SHOP[product][0]}. Item #{purchase}. Redeem with /use-item item_id:{purchase}. Balance: {eco.balance(db,interaction.guild_id,self.owner):,} chudlets.',ephemeral=False)
 
 
 @bot.tree.command(name='shop',description='Buy art rewards with chudlets.')
@@ -395,7 +418,7 @@ async def shop(interaction:discord.Interaction):
     menu=discord.ui.View(timeout=180)
     menu.add_item(ShopSelect(interaction.user.id))
     text='\n'.join(f'{name}: {price:,} chudlets' for name,price in eco.SHOP.values())
-    await interaction.response.send_message(f'Balance: {eco.balance(db,interaction.guild_id,interaction.user.id):,} chudlets\n\n{text}\n\nSelecting a reward purchases one copy. Use /inventory to find purchased items.',view=menu,ephemeral=True)
+    await interaction.response.send_message(f'Balance: {eco.balance(db,interaction.guild_id,interaction.user.id):,} chudlets\n\n{text}\n\nSelecting a reward purchases one copy. Use /inventory to find purchased items.',view=menu,ephemeral=False)
 
 
 @bot.tree.command(name='inventory',description='View purchased rewards and their redemption IDs.')
@@ -403,7 +426,7 @@ async def shop(interaction:discord.Interaction):
 async def inventory(interaction:discord.Interaction,page:app_commands.Range[int,1,100000]=1):
     rows=db.execute('SELECT * FROM purchases WHERE guild=? AND owner=? ORDER BY id DESC LIMIT 15 OFFSET ?',(interaction.guild_id,interaction.user.id,(page-1)*15)).fetchall()
     text='\n'.join(f"#{r['id']} · {eco.SHOP[r['product']][0]} · {'Redeemed' if r['used'] else 'Unused'}" for r in rows)
-    await interaction.response.send_message(text or 'No purchased items on this page.',ephemeral=True)
+    await interaction.response.send_message(text or 'No purchased items on this page.',ephemeral=False)
 
 
 @bot.tree.command(name='use-item',description='Redeem a purchased art reward and receive a claim receipt.')
@@ -412,7 +435,7 @@ async def use_item(interaction:discord.Interaction,item_id:int):
     with db:
         product=eco.redeem(db,interaction.guild_id,interaction.user.id,item_id)
     if product is None:
-        return await interaction.response.send_message('That item is already redeemed or is not yours. Use /receipt to display an existing redemption.',ephemeral=True)
+        return await interaction.response.send_message('That item is already redeemed or is not yours. Use /receipt to display an existing redemption.',ephemeral=False)
     await interaction.response.send_message(redemption_text(interaction.user.id,item_id,product))
 
 
@@ -425,7 +448,7 @@ def redemption_text(owner,item_id,product):
 async def receipt(interaction:discord.Interaction,item_id:int):
     row=db.execute('SELECT * FROM purchases WHERE id=? AND guild=? AND owner=? AND used=1',(item_id,interaction.guild_id,interaction.user.id)).fetchone()
     if not row:
-        return await interaction.response.send_message('No redeemed item with that ID belongs to you.',ephemeral=True)
+        return await interaction.response.send_message('No redeemed item with that ID belongs to you.',ephemeral=False)
     await interaction.response.send_message(redemption_text(interaction.user.id,item_id,row['product']))
 
 
@@ -467,7 +490,7 @@ def export_database(path, guild_id=None):
         source.close()
 
 
-@bot.tree.command(name='backup',description='Download saved user data privately. Admins: this server. Bot owner: all servers.')
+@bot.tree.command(name='backup',description='Download saved user data publicly. Admins: this server. Bot owner: all servers.')
 @app_commands.guild_only()
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
@@ -475,16 +498,16 @@ def export_database(path, guild_id=None):
 @app_commands.checks.cooldown(1,60.0,key=lambda i:i.user.id)
 async def backup_data(interaction:discord.Interaction,scope:str='server'):
     if scope not in ('server','all'):
-        return await interaction.response.send_message('Choose server or all.',ephemeral=True)
+        return await interaction.response.send_message('Choose server or all.',ephemeral=False)
     if scope == 'all' and not await bot.is_owner(interaction.user):
-        return await interaction.response.send_message('Only the Discord application owner/team can export every server. Choose This server instead.',ephemeral=True)
-    await interaction.response.defer(ephemeral=True,thinking=True)
+        return await interaction.response.send_message('Only the Discord application owner/team can export every server. Choose This server instead.',ephemeral=False)
+    await interaction.response.defer(ephemeral=False,thinking=True)
     path = db.execute('PRAGMA database_list').fetchone()['file']
     payload = await asyncio.to_thread(export_database,path,None if scope=='all' else interaction.guild_id)
     if len(payload) > interaction.filesize_limit:
-        return await interaction.followup.send('This backup exceeds Discord’s attachment limit. Download a SQLite snapshot through your host instead.',ephemeral=True)
+        return await interaction.followup.send('This backup exceeds Discord’s attachment limit. Download a SQLite snapshot through your host instead.',ephemeral=False)
     filename=f"user-data-{'all' if scope=='all' else interaction.guild_id}-{int(time.time())}.zip"
-    await interaction.followup.send('Download and keep this ZIP privately. It contains flags.db for restoration and user-data.json for inspection. It is a snapshot from this moment.',file=discord.File(io.BytesIO(payload),filename=filename),ephemeral=True)
+    await interaction.followup.send('This ZIP is publicly visible in this channel. Download and store your copy securely. It contains flags.db for restoration and user-data.json for inspection. It is a snapshot from this moment.',file=discord.File(io.BytesIO(payload),filename=filename),ephemeral=False)
 
 
 @bot.tree.command(name='cgive',description='Administrator: add chudlets to a player in this server.')
@@ -493,10 +516,10 @@ async def backup_data(interaction:discord.Interaction,scope:str='server'):
 @app_commands.checks.has_permissions(administrator=True)
 async def cgive(interaction:discord.Interaction,member:discord.Member,amount:app_commands.Range[int,1,1000000000]):
     if member.bot:
-        return await interaction.response.send_message('Choose a human player.',ephemeral=True)
+        return await interaction.response.send_message('Choose a human player.',ephemeral=False)
     with db:
         result=eco.adjust_balance(db,interaction.guild_id,interaction.user.id,member.id,amount,interaction.id)
-    await interaction.response.send_message(f'Added {result[0]:,} chudlets to {discord.utils.escape_markdown(member.display_name)}. Balance: {result[1]:,}.',ephemeral=True)
+    await interaction.response.send_message(f'Added {result[0]:,} chudlets to {discord.utils.escape_markdown(member.display_name)}. Balance: {result[1]:,}.',ephemeral=False)
 
 
 @bot.tree.command(name='ctake',description='Administrator: take chudlets from a player, stopping at zero.')
@@ -505,10 +528,10 @@ async def cgive(interaction:discord.Interaction,member:discord.Member,amount:app
 @app_commands.checks.has_permissions(administrator=True)
 async def ctake(interaction:discord.Interaction,member:discord.Member,amount:app_commands.Range[int,1,1000000000]):
     if member.bot:
-        return await interaction.response.send_message('Choose a human player.',ephemeral=True)
+        return await interaction.response.send_message('Choose a human player.',ephemeral=False)
     with db:
         result=eco.adjust_balance(db,interaction.guild_id,interaction.user.id,member.id,-amount,interaction.id)
-    await interaction.response.send_message(f'Removed {-result[0]:,} chudlets from {discord.utils.escape_markdown(member.display_name)}. Balance: {result[1]:,}.',ephemeral=True)
+    await interaction.response.send_message(f'Removed {-result[0]:,} chudlets from {discord.utils.escape_markdown(member.display_name)}. Balance: {result[1]:,}.',ephemeral=False)
 
 
 @bot.tree.command(name='spawnrigged',description='Administrator: spawn a specific card and rarity in the configured channel.')
@@ -518,14 +541,14 @@ async def ctake(interaction:discord.Interaction,member:discord.Member,amount:app
 @app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
 async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal'):
     if card not in CATALOG or rarity not in eco.RARITIES:
-        return await interaction.response.send_message('Choose a card from autocomplete and a valid rarity.',ephemeral=True)
+        return await interaction.response.send_message('Choose a card from autocomplete and a valid rarity.',ephemeral=False)
     row=db.execute('SELECT channel FROM settings WHERE guild=?',(interaction.guild_id,)).fetchone()
     if not row:
-        return await interaction.response.send_message('Run /setup first.',ephemeral=True)
-    await interaction.response.defer(ephemeral=True)
+        return await interaction.response.send_message('Run /setup first.',ephemeral=False)
+    await interaction.response.defer(ephemeral=False)
     channel=bot.get_channel(row['channel']) or await bot.fetch_channel(row['channel'])
     success=await spawn(interaction.guild_id,channel,CATALOG[card],rarity)
-    await interaction.followup.send('Chosen card spawned. Anyone can claim it normally.' if success else 'An image is already waiting. Claim it or wait for it to expire first.',ephemeral=True)
+    await interaction.followup.send('Chosen card spawned. Anyone can claim it normally.' if success else 'An image is already waiting. Claim it or wait for it to expire first.',ephemeral=False)
 
 
 @spawnrigged.autocomplete('card')
@@ -538,12 +561,12 @@ async def autocomplete_card(interaction:discord.Interaction,current:str):
 @app_commands.guild_only()
 async def ctrade(interaction:discord.Interaction,number:app_commands.Range[int,1,1000000000],user:discord.Member):
     if user.bot or user.id==interaction.user.id:
-        return await interaction.response.send_message('Choose another human player.',ephemeral=True)
+        return await interaction.response.send_message('Choose another human player.',ephemeral=False)
     with db:
         success=eco.transfer(db,interaction.guild_id,interaction.user.id,user.id,number,interaction.id)
     if not success:
-        return await interaction.response.send_message('Transfer failed. Check your balance and the recipient’s balance limit.',ephemeral=True)
-    await interaction.response.send_message(f'Sent {number:,} chudlets to {discord.utils.escape_markdown(user.display_name)}. Your balance: {eco.balance(db,interaction.guild_id,interaction.user.id):,}.',ephemeral=True)
+        return await interaction.response.send_message('Transfer failed. Check your balance and the recipient’s balance limit.',ephemeral=False)
+    await interaction.response.send_message(f'Sent {number:,} chudlets to {discord.utils.escape_markdown(user.display_name)}. Your balance: {eco.balance(db,interaction.guild_id,interaction.user.id):,}.',ephemeral=False)
 
 
 @bot.tree.command(name='sets',description='See card sets, completion progress and claim earned set bonuses.')
@@ -564,7 +587,7 @@ async def sets_command(interaction:discord.Interaction,page:app_commands.Range[i
     if not definitions:
         embed.add_field(name='No sets configured',value='Add sets.json and assign cards using the sets field in items.json.',inline=False)
     embed.set_footer(text=f'Page {page}/{max(1,(len(definitions)+4)//5)}. Any rarity counts. Each reward pays once per player and server.')
-    await interaction.response.send_message(embed=embed,ephemeral=True)
+    await interaction.response.send_message(embed=embed,ephemeral=False)
 
 
 @bot.tree.command(name='draw',description='Get a random OC drawing prompt. This command does not award chudlets.')
@@ -572,7 +595,7 @@ async def sets_command(interaction:discord.Interaction,page:app_commands.Range[i
 @app_commands.checks.cooldown(1,10.0,key=lambda i:i.user.id)
 async def draw(interaction:discord.Interaction):
     if not DRAW_POOL:
-        return await interaction.response.send_message('The drawing pool is empty. Ask the bot owner to add images to draw_pool.json.',ephemeral=True)
+        return await interaction.response.send_message('The drawing pool is empty. Ask the bot owner to add images to draw_pool.json.',ephemeral=False)
     choice=random.choice(DRAW_POOL)
     embed=discord.Embed(description='Draw this OC (Coloured, any) for 7500 Chudlets!')
     embed.set_image(url=choice['image_url'])
@@ -596,16 +619,16 @@ def gift_owned_card(guild,sender,recipient,card_id):
 @app_commands.guild_only()
 async def givecard(interaction:discord.Interaction,card_id:int,user:discord.Member):
     if user.bot or user.id==interaction.user.id:
-        return await interaction.response.send_message('Choose another human player.',ephemeral=True)
+        return await interaction.response.send_message('Choose another human player.',ephemeral=False)
     with db:
         result=gift_owned_card(interaction.guild_id,interaction.user.id,user.id,card_id)
     if result is None:
-        return await interaction.response.send_message('You do not own that card in this server. Check /collection.',ephemeral=True)
+        return await interaction.response.send_message('You do not own that card in this server. Check /collection.',ephemeral=False)
     item,rarity,reward=result
     text=f"Gave card #{card_id}, {discord.utils.escape_markdown(item_info(item)['name'])} ({rarity}), to {discord.utils.escape_markdown(user.display_name)}."
     if reward:
         text+=f' The recipient earned {reward:,} chudlets for collection completion.'
-    await interaction.response.send_message(text,ephemeral=True)
+    await interaction.response.send_message(text,ephemeral=False)
 
 
 class SellAllView(discord.ui.View):
@@ -617,9 +640,9 @@ class SellAllView(discord.ui.View):
     @discord.ui.button(label='Confirm: sell all cards',style=discord.ButtonStyle.danger)
     async def confirm(self,interaction,button):
         if interaction.user.id != self.owner:
-            return await interaction.response.send_message('This sale belongs to another player.',ephemeral=True)
+            return await interaction.response.send_message('This sale belongs to another player.',ephemeral=False)
         if self.finished:
-            return await interaction.response.send_message('This sale has already been handled.',ephemeral=True)
+            return await interaction.response.send_message('This sale has already been handled.',ephemeral=False)
         self.finished=True
         with db:
             current=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? ORDER BY id',(self.guild,self.owner)).fetchall()
@@ -635,9 +658,9 @@ class SellAllView(discord.ui.View):
     @discord.ui.button(label='Cancel',style=discord.ButtonStyle.secondary)
     async def cancel(self,interaction,button):
         if interaction.user.id != self.owner:
-            return await interaction.response.send_message('This sale belongs to another player.',ephemeral=True)
+            return await interaction.response.send_message('This sale belongs to another player.',ephemeral=False)
         if self.finished:
-            return await interaction.response.send_message('This sale has already been handled.',ephemeral=True)
+            return await interaction.response.send_message('This sale has already been handled.',ephemeral=False)
         self.finished=True
         self.stop()
         await interaction.response.edit_message(content='Sale cancelled. No cards sold.',view=None)
@@ -648,10 +671,137 @@ class SellAllView(discord.ui.View):
 async def sellall(interaction:discord.Interaction):
     rows=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? ORDER BY id',(interaction.guild_id,interaction.user.id)).fetchall()
     if not rows:
-        return await interaction.response.send_message('You have no cards to sell in this server.',ephemeral=True)
+        return await interaction.response.send_message('You have no cards to sell in this server.',ephemeral=False)
     quoted=[(r['id'],sale_price(item_info(r['country']),r['rarity'])) for r in rows]
     total=sum(price for _,price in quoted)
-    await interaction.response.send_message(f'Sell ALL {len(rows)} of your cards, including every rarity and your last copies, for {total:,} chudlets? This removes your entire card collection in this server. Shop items are unaffected. Confirm within 60 seconds.',view=SellAllView(interaction.guild_id,interaction.user.id,quoted),ephemeral=True)
+    await interaction.response.send_message(f'Sell ALL {len(rows)} of your cards, including every rarity and your last copies, for {total:,} chudlets? This removes your entire card collection in this server. Shop items are unaffected. Confirm within 60 seconds.',view=SellAllView(interaction.guild_id,interaction.user.id,quoted),ephemeral=False)
+
+
+def owned_item_counts(guild_id,owner):
+    return {r['country']:r['n'] for r in db.execute('SELECT country,COUNT(*) AS n FROM cards WHERE guild=? AND owner=? GROUP BY country',(guild_id,owner))}
+
+
+def ownership_fields(embed,owned,missing,page):
+    pages=max(1,(max(len(owned),len(missing))+4)//5)
+    if page>pages:
+        return None
+    offset=(page-1)*5
+    embed.add_field(name=f'Owned ({len(owned)})',value='\n'.join(owned[offset:offset+5]) or 'None on this page.',inline=False)
+    embed.add_field(name=f'Missing ({len(missing)})',value='\n'.join(missing[offset:offset+5]) or 'None on this page.',inline=False)
+    embed.set_footer(text=f'Page {page}/{pages} · Counts reflect current ownership in this server.')
+    return embed
+
+
+@bot.tree.command(name='settrack',description='Track which cards you own and are missing from a set.')
+@app_commands.guild_only()
+async def settrack(interaction:discord.Interaction,set:str,page:app_commands.Range[int,1,100000]=1):
+    definition=eco.SET_DEFINITIONS.get(set)
+    if definition is None:
+        return await interaction.response.send_message('Choose a set from autocomplete.',ephemeral=False)
+    counts=owned_item_counts(interaction.guild_id,interaction.user.id)
+    members=sorted(definition['members'],key=lambda i:item_info(i)['name'].casefold())
+    owned=[f"{discord.utils.escape_markdown(item_info(i)['name'])} · {counts[i]} copies" for i in members if i in counts]
+    missing=[discord.utils.escape_markdown(item_info(i)['name']) for i in members if i not in counts]
+    paid=db.execute('SELECT 1 FROM completed_card_sets WHERE guild=? AND owner=? AND set_id=?',(interaction.guild_id,interaction.user.id,set)).fetchone()
+    total_copies=sum(counts.get(i,0) for i in members)
+    embed=discord.Embed(title=definition['name'],description=f"{discord.utils.escape_markdown(interaction.user.display_name)} owns {len(owned)}/{len(members)} different cards in this set ({total_copies} copies total).\nAny rarity counts. Completion reward: 10,000 chudlets.\n"+('Reward already collected.' if paid else 'Use /sets to collect the reward when complete.'))
+    embed=ownership_fields(embed,owned,missing,page)
+    if embed is None:
+        return await interaction.response.send_message('That page does not exist.',ephemeral=False)
+    await interaction.response.send_message(embed=embed,ephemeral=False)
+
+
+@settrack.autocomplete('set')
+async def autocomplete_set(interaction:discord.Interaction,current:str):
+    return [app_commands.Choice(name=f"{v['name']} ({k})"[:100],value=k) for k,v in eco.SET_DEFINITIONS.items() if current.casefold() in k.casefold() or current.casefold() in v['name'].casefold()][:25]
+
+
+@bot.tree.command(name='raritytrack',description='Track owned and missing variants of one card.')
+@app_commands.guild_only()
+async def raritytrack(interaction:discord.Interaction,card:str):
+    if card not in CATALOG:
+        return await interaction.response.send_message('Choose a card from autocomplete.',ephemeral=False)
+    counts={r['rarity']:r['n'] for r in db.execute('SELECT rarity,COUNT(*) AS n FROM cards WHERE guild=? AND owner=? AND country=? GROUP BY rarity',(interaction.guild_id,interaction.user.id,card))}
+    active=list(eco.RARITIES)
+    owned=[f'{rarity.replace("_"," ").title()} · {counts[rarity]} copies' for rarity in active if counts.get(rarity,0)]
+    missing=[rarity.replace('_',' ').title() for rarity in active if not counts.get(rarity,0)]
+    retired=[f'{r.replace("_"," ").title()} · {n} copies' for r,n in counts.items() if r not in active]
+    paid=db.execute('SELECT 1 FROM completed_sets WHERE guild=? AND owner=? AND item=?',(interaction.guild_id,interaction.user.id,card)).fetchone()
+    embed=discord.Embed(title=f"{item_info(card)['name']} variants",description=f"{discord.utils.escape_markdown(interaction.user.display_name)} owns {len(owned)}/{len(active)} current variants ({sum(counts.values())} copies total).\n"+('Rarity completion reward already collected.' if paid else 'Rarity completion reward: 5,000 chudlets.'))
+    embed.add_field(name='Owned variants',value='\n'.join(owned) or 'None',inline=False)
+    embed.add_field(name='Missing variants',value='\n'.join(missing) or 'None',inline=False)
+    if retired:
+        embed.add_field(name='Retired variants (excluded from progress)',value='\n'.join(retired)[:1024],inline=False)
+    await interaction.response.send_message(embed=embed,ephemeral=False)
+
+
+@raritytrack.autocomplete('card')
+async def autocomplete_rarity_card(interaction:discord.Interaction,current:str):
+    return await autocomplete_card(interaction,current)
+
+
+@bot.tree.command(name='itemtrack',description='Track all collectible cards you own and are missing.')
+@app_commands.guild_only()
+async def itemtrack(interaction:discord.Interaction,page:app_commands.Range[int,1,100000]=1):
+    counts=owned_item_counts(interaction.guild_id,interaction.user.id)
+    ids=sorted(CATALOG.keys() | counts.keys(),key=lambda i:item_info(i)['name'].casefold())
+    owned=[f"{discord.utils.escape_markdown(item_info(i)['name'])} · {counts[i]} copies" for i in ids if i in counts]
+    missing=[discord.utils.escape_markdown(item_info(i)['name']) for i in ids if i not in counts]
+    embed=discord.Embed(title='Item tracker',description=f"{discord.utils.escape_markdown(interaction.user.display_name)} owns {len(owned)}/{len(ids)} different collectible cards ({sum(counts.values())} copies total). Any rarity counts.")
+    embed=ownership_fields(embed,owned,missing,page)
+    if embed is None:
+        return await interaction.response.send_message('That page does not exist.',ephemeral=False)
+    await interaction.response.send_message(embed=embed,ephemeral=False)
+
+
+def bounty_spawn_pool(guild_id,chosen_item=None,chosen_rarity=None):
+    """Boost exact card/rarity pairs once, regardless of subscriber count."""
+    targets={(r['card'],r['rarity']) for r in db.execute('SELECT card,rarity FROM bounties WHERE guild=?',(guild_id,))}
+    cards=[chosen_item] if chosen_item is not None else ACTIVE_ITEMS
+    rarities=[chosen_rarity] if chosen_rarity is not None else list(eco.RARITIES)
+    pool=[]
+    for item in cards:
+        for rarity in rarities:
+            weight=(1 if chosen_item is not None else item['weight'])*(1 if chosen_rarity is not None else eco.RARITIES[rarity])
+            if (item['id'],rarity) in targets:
+                weight*=1.5
+            if weight>0:
+                pool.append((item,rarity,weight))
+    return pool
+
+
+async def expire_spawns():
+    for row in db.execute('SELECT * FROM spawns WHERE expires<=?',(time.time(),)).fetchall():
+        with db:
+            removed=db.execute('DELETE FROM spawns WHERE guild=? AND message=? AND expires<=?',(row['guild'],row['message'],time.time())).rowcount
+        if not removed:
+            continue
+        try:
+            channel=bot.get_channel(row['channel']) or await bot.fetch_channel(row['channel'])
+            message=await channel.fetch_message(row['message'])
+            await message.delete()
+        except discord.NotFound:
+            pass
+        except discord.HTTPException:
+            logging.exception('Spawn expired in database but its Discord message could not be removed')
+
+
+@bot.tree.command(name='bountyset',description='Boost one card and rarity, get pinged when it spawns, and extend its lifetime.')
+@app_commands.guild_only()
+@app_commands.choices(rarity=[app_commands.Choice(name=r.replace('_',' ').title(),value=r) for r in eco.RARITIES])
+async def bountyset(interaction:discord.Interaction,card:str,rarity:str):
+    available={item['id'] for item in ACTIVE_ITEMS}
+    if card not in available or rarity not in eco.RARITIES or eco.RARITIES[rarity]<=0:
+        return await interaction.response.send_message('Choose a card and rarity that can spawn randomly.',ephemeral=False)
+    with db:
+        db.execute('INSERT INTO bounties VALUES(?,?,?,?) ON CONFLICT(guild,owner) DO UPDATE SET card=excluded.card,rarity=excluded.rarity',
+                   (interaction.guild_id,interaction.user.id,card,rarity))
+    await interaction.response.send_message(f"Bounty set: **{discord.utils.escape_markdown(item_info(card)['name'])} ({rarity.replace('_',' ').title()})**. This exact combination gets 50% more spawn weight in this server. I’ll ping you when it appears, and it will last 10 minutes. This replaces your previous bounty and clears when you claim the target. Other players can still claim it; the consecutive-claim rule still applies.",ephemeral=False)
+
+
+@bountyset.autocomplete('card')
+async def autocomplete_bounty_card(interaction:discord.Interaction,current:str):
+    return [app_commands.Choice(name=f"{i['name']} ({i['id']})"[:100],value=i['id']) for i in ACTIVE_ITEMS if current.casefold() in i['name'].casefold() or current.casefold() in i['id'].casefold()][:25]
 
 
 @bot.tree.error
@@ -664,9 +814,9 @@ async def command_error(interaction, error):
         logging.error('Command failed', exc_info=(type(error), error, error.__traceback__))
         text = 'Command failed. Check the hosting logs and my channel permissions.'
     if interaction.response.is_done():
-        await interaction.followup.send(text, ephemeral=True)
+        await interaction.followup.send(text, ephemeral=False)
     else:
-        await interaction.response.send_message(text, ephemeral=True)
+        await interaction.response.send_message(text, ephemeral=False)
 
 
 if __name__ == '__main__':

@@ -1,3 +1,45 @@
+## Latest update: /bountyset card rarity
+
+Example: /bountyset card:Seadweller rarity:gold. Use autocomplete to select a card and choose its rarity. One active bounty is saved per user per server. Setting another bounty replaces the previous one. It costs no chudlets and creates no currency rewards. Cards and rarities with zero random spawn weight cannot be selected.
+
+The selected EXACT card-and-rarity combination receives 1.5 times its usual random selection weight in this server. The base card's other rarities do not get that bonus. Multiple players targeting the same pair share a single 1.5 multiplier, rather than stacking. Different pairs can each be boosted. Like all weighted choices, results are normalized against the other weights; a 50% weight boost is not an additional 50 percentage points or a guaranteed appearance.
+
+When the target appears, the bot explicitly pings every active bounty holder for that card and rarity. Other user/role/everyone mentions remain disabled by default. A matching spawn remains claimable for 10 minutes and is then removed from Discord; ordinary spawns remain for 5 minutes. There is still one active spawn per server, so a waiting 10-minute bounty spawn delays the next spawn rather than being replaced halfway through. The cleanup loop checks about every 5 seconds. If Discord denies message access/removal, the expired database entry is still removed and cannot be claimed.
+
+Anyone can claim a bounty spawn. The user's bounty clears only when that user successfully CLAIMS the exact target; an expired target, another player's claim, gifts or trades do not clear it. It stays active and continues boosting until then or until replaced. A bounty does not bypass the consecutive-claim restriction. Bounties apply to matching /spawnrigged spawns for notification and lifetime as well, but the chosen rigged pair remains fixed.
+
+Bounty state is saved in the bounties database table and included in /backup snapshots. It survives restart provided the database is on persistent storage. Matching players are notified in batches when necessary to respect message/mention limits.
+
+To install, replace ONLY bot.py in your GitHub repository and deploy the latest commit. Keep the existing database, volume, DATA_DIR, economy.py and customized JSON files. No new dependencies or Dockerfile changes are needed. Download /backup before deploying. Previous tracking features and public replies remain enabled.
+
+Seven new bounty tests and the nine tracking/claim tests passed (16 focused checks): exact-pair weights, non-stacking and server isolation, intentional user mentions, 10/5-minute lifetimes, replacing bounties, successful-owner-only clearing, claim restrictions, expiry cleanup and database persistence. Live Discord notification delivery depends on your server permissions and members' notification settings.
+
+## Latest update: tracking, alternating claims and public replies
+
+Update bot.py in GitHub with this release, then deploy the latest commit. Your economy.py, custom items.json, sets.json, draw_pool.json, rarity odds, prices and existing database are preserved. No additional dependency or Dockerfile change is required. Keep the existing persistent volume and DATA_DIR; download a backup before redeploying. If your bot has no persistent storage, a code deployment can still erase its local data.
+
+/settrack set:ocean shows your owned and missing cards for that configured set, distinct-card completion (for example 3/5), counts for each owned card and total copies. Choose the set from autocomplete. Any rarity counts toward set ownership. Add page:2 for longer sets. This command only reads progress; use /sets to collect any completion rewards on already owned sets.
+
+/raritytrack card:Seadweller shows the current variants you own, how many copies of each, missing variants, and the number of distinct owned variants. Choose a card from autocomplete. Retired variants are listed separately and do not count toward the current rarity target. This tracker gives no chudlets.
+
+/itemtrack shows every known collectible card you own and are missing, with copy counts and a distinct-item completion total. Owned items are above missing items. Any rarity counts as owning the base card. Add page:2 etc. for more results. This tracks collectible cards, not purchased shop rewards; /inventory still lists shop purchases. Retired saved card definitions can appear in the tracker too. All trackers reflect this server and the user running the command at that moment; they do not auto-refresh old messages.
+
+After someone successfully claims a spawn, they must wait for another player to successfully claim in the SAME server before claiming again. The exact rejection is:
+
+Users can't claim two cards in a row!
+
+Blocked attempts leave the spawn available and grant no cards or currency. Failed attempts, expired spawns, trades, gifts, sales and new spawns do not reset the last successful claimant. Another server has its own claimant. This applies to ordinary and manually rigged spawns. The last claimant is stored in a new claim_turns table and survives restart/backup/restore. The first successful claim after installing this release establishes the initial claimant; old ownership is not guessed as claim history.
+
+All previously ephemeral command replies, errors, confirmations and followups are now PUBLIC in the channel. This includes balances, inventories, collection views, shop purchases, admin currency adjustments and /backup attachments. The backup ZIP can therefore be downloaded by channel viewers; use an admin-only channel for database exports if you want restricted access. All-server export still requires the bot application owner/team, and administrative commands still require Administrator permission. Public buttons and shop menus still only accept actions from the original player or designated trade recipient. Previously sent ephemeral messages do not change retroactively.
+
+Run the focused checks with:
+
+    python -m unittest test_tracking.py -v
+
+Nine focused tests passed: tracker ownership/copy counts and server isolation, missing variants, retired variant display, invalid choices, autocomplete, public replies, exact claim error/no reward, concurrent claims, and persistence after database reopen. Live Discord checks still require your bot token/server. test_bot.py is retained from the uploaded project and may contain old demo names/rarity expectations; the focused tests use isolated test data.
+
+The earlier README sections below describe previous releases. Their references to private/ephemeral replies are superseded by this update.
+
 # Image collector bot with chudlets
 
 ## Latest update: currency transfers, card sets, drawing prompts, 10 variants
