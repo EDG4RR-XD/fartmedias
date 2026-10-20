@@ -375,7 +375,7 @@ class SellView(discord.ui.View):
         with db:
             sold=eco.sell(db,self.guild,self.owner,self.card_id,self.price)
         self.stop()
-        await interaction.response.edit_message(content=f'Sold card #{self.card_id} for {self.price:,} chudlets.' if sold else 'Sale cancelled: you no longer own that card.',view=None)
+        await interaction.response.edit_message(content=f'Sold card #{self.card_id} for {self.price+eco.sale_bonus(db,self.guild,self.owner):,} chudlets (including Mass Credit bonus).' if sold else 'Sale cancelled: you no longer own that card.',view=None)
 
     @discord.ui.button(label='Cancel',style=discord.ButtonStyle.secondary)
     async def cancel(self,interaction,button):
@@ -393,7 +393,8 @@ async def sell_card(interaction:discord.Interaction,card_id:int):
         return await interaction.response.send_message('You do not own that card in this server.',ephemeral=False)
     item=item_info(row['country'])
     price=sale_price(item,row['rarity'])
-    await interaction.response.send_message(f"Sell #{card_id}, {discord.utils.escape_markdown(item['name'])} ({row['rarity']}), for {price:,} chudlets? This removes that copy from your collection. Confirm within 60 seconds.",view=SellView(interaction.guild_id,interaction.user.id,card_id,price),ephemeral=False)
+    bonus=eco.sale_bonus(db,interaction.guild_id,interaction.user.id)
+    await interaction.response.send_message(f"Sell #{card_id}, {discord.utils.escape_markdown(item['name'])} ({row['rarity']}), for {price+bonus:,} chudlets (including {bonus:,} Mass Credit bonus)? This removes that copy from your collection. Confirm within 60 seconds.",view=SellView(interaction.guild_id,interaction.user.id,card_id,price),ephemeral=False)
 
 
 class ShopSelect(discord.ui.Select):
@@ -440,7 +441,8 @@ async def use_item(interaction:discord.Interaction,item_id:int):
 
 
 def redemption_text(owner,item_id,product):
-    return f'<@{owner}> redeemed **{eco.SHOP[product][0]}**. Receipt #{item_id}. Please ping @jonathan.sims with your claim and this receipt. This reward has been marked used.'
+    extra = ' Pick a character from https://toyhou.se/jsims/characters/folder:5635645 . Some requests may be declined; choose another character or request a refund from the owner.' if product == 'free_character' else ''
+    return f'<@{owner}> redeemed **{eco.SHOP[product][0]}**. Receipt #{item_id}. Please ping @jonathan.sims with your claim and this receipt. This reward has been marked used.' + extra
 
 
 @bot.tree.command(name='receipt',description='Display one of your saved redemption receipts again.')
@@ -603,6 +605,59 @@ async def draw(interaction:discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 
+@bot.tree.command(name='mass',description='Get an OC to doodle for Mass drawing rewards.')
+@app_commands.guild_only()
+@app_commands.checks.cooldown(1,10.0,key=lambda i:i.user.id)
+async def mass(interaction:discord.Interaction):
+    if not DRAW_POOL:
+        return await interaction.response.send_message('The drawing pool is empty. Add images to draw_pool.json.')
+    image=random.choice(DRAW_POOL)['image_url']
+    embed=discord.Embed(description='Doodle this OC at any quality. Per doodle you make, you earn 10 chudlets. Minimum of 10 doodles. When completed, send the ZIP file to me. You can use this command again to get another oc.\n-# do /draw to earn more chudlets!')
+    embed.set_image(url=image)
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name='massown',description='Get Mass drawing instructions for your own OC.')
+@app_commands.guild_only()
+async def massown(interaction:discord.Interaction):
+    await interaction.response.send_message('Doodle one of your OCs at any quality. Per doodle you make, you earn 1 chudlet. Minimum of 10 doodles. When completed, send a screenshot of all the doodles to me.')
+
+@bot.tree.command(name='mcgive',description='Administrator: give Mass Credit to a user.')
+@app_commands.guild_only()
+@app_commands.default_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
+async def mcgive(interaction:discord.Interaction,member:discord.Member,amount:app_commands.Range[int,1,1000000000]):
+    with db:
+        delta,current=eco.adjust_mass_credit(db,interaction.guild_id,member.id,amount)
+    await interaction.response.send_message(f'Gave {delta:,} Mass Credit to {member.mention}. Total: {current:,}. Sale bonus: +{current//10:,} chudlets per card.')
+
+@bot.tree.command(name='mctake',description='Administrator: take Mass Credit from a user.')
+@app_commands.guild_only()
+@app_commands.default_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
+async def mctake(interaction:discord.Interaction,member:discord.Member,amount:app_commands.Range[int,1,1000000000]):
+    with db:
+        delta,current=eco.adjust_mass_credit(db,interaction.guild_id,member.id,-amount)
+    await interaction.response.send_message(f'Took {-delta:,} Mass Credit from {member.mention}. Total: {current:,}. Sale bonus: +{current//10:,} chudlets per card.')
+
+@bot.tree.command(name='profile',description='View Chudlets, Mass Credit and rarest owned card.')
+@app_commands.guild_only()
+async def profile(interaction:discord.Interaction,user:discord.Member=None):
+    member=user or interaction.user
+    mc=eco.mass_credit(db,interaction.guild_id,member.id)
+    money=eco.balance(db,interaction.guild_id,member.id)
+    rows=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=?',(interaction.guild_id,member.id)).fetchall()
+    order=list(eco.RARITIES)
+    # RARITIES is ordered from most common to least common.
+    rarest=max(rows,key=lambda row:order.index(row['rarity']) if row['rarity'] in order else -1) if rows else None
+    description=(f"{item_info(rarest['country'])['name']} ({rarest['rarity'].title()}), Card #{rarest['id']}" if rarest else 'None')
+    embed=discord.Embed(title=f'{member.display_name} | Profile')
+    embed.add_field(name='Mass Credit',value=f'{mc:,}',inline=True)
+    embed.add_field(name='Chudlets',value=f'{money:,}',inline=True)
+    embed.add_field(name='Rarest card',value=discord.utils.escape_markdown(description),inline=False)
+    embed.set_footer(text=f'Mass Credit sale bonus: +{mc//10:,} chudlets per card sold.')
+    await interaction.response.send_message(embed=embed)
+
+
 def gift_owned_card(guild,sender,recipient,card_id):
     if sender==recipient:
         return None
@@ -649,7 +704,7 @@ class SellAllView(discord.ui.View):
             current_quote=[(r['id'],sale_price(item_info(r['country']),r['rarity'])) for r in current]
             valid=current_quote==self.quoted
             if valid:
-                total=sum(price for _,price in self.quoted)
+                total=sum(price for _,price in self.quoted)+eco.sale_bonus(db,self.guild,self.owner,len(self.quoted))
                 db.execute('DELETE FROM cards WHERE guild=? AND owner=?',(self.guild,self.owner))
                 eco.credit(db,self.guild,self.owner,total)
         self.stop()
@@ -673,7 +728,7 @@ async def sellall(interaction:discord.Interaction):
     if not rows:
         return await interaction.response.send_message('You have no cards to sell in this server.',ephemeral=False)
     quoted=[(r['id'],sale_price(item_info(r['country']),r['rarity'])) for r in rows]
-    total=sum(price for _,price in quoted)
+    total=sum(price for _,price in quoted)+eco.sale_bonus(db,interaction.guild_id,interaction.user.id,len(quoted))
     await interaction.response.send_message(f'Sell ALL {len(rows)} of your cards, including every rarity and your last copies, for {total:,} chudlets? This removes your entire card collection in this server. Shop items are unaffected. Confirm within 60 seconds.',view=SellAllView(interaction.guild_id,interaction.user.id,quoted),ephemeral=False)
 
 

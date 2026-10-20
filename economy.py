@@ -20,6 +20,7 @@ SHOP = {
     'free_ych': ('FREE YCH', 15000),
     'on_base_custom': ('FREE ON BASE CUSTOM', 20000),
     'off_base_custom': ('FREE OFF BASE CUSTOM', 40000),
+    'free_character': ('FREE CHARACTER', 100000),
 }
 
 
@@ -34,6 +35,7 @@ def migrate(db):
     CREATE TABLE IF NOT EXISTS completed_card_sets(guild INTEGER, owner INTEGER, set_id TEXT, PRIMARY KEY(guild,owner,set_id));
     CREATE TABLE IF NOT EXISTS currency_transfers(request TEXT PRIMARY KEY, guild INTEGER, sender INTEGER, recipient INTEGER, amount INTEGER, created_at REAL);
     CREATE TABLE IF NOT EXISTS wallet_adjustments(request TEXT PRIMARY KEY, guild INTEGER, actor INTEGER, owner INTEGER, delta INTEGER, balance INTEGER, created_at REAL);
+    CREATE TABLE IF NOT EXISTS mass_credits(guild INTEGER NOT NULL, owner INTEGER NOT NULL, amount INTEGER NOT NULL DEFAULT 0 CHECK(amount>=0), PRIMARY KEY(guild,owner));
     CREATE TABLE IF NOT EXISTS wallets(guild INTEGER, owner INTEGER, amount INTEGER NOT NULL DEFAULT 0 CHECK(amount>=0), PRIMARY KEY(guild,owner));
     CREATE TABLE IF NOT EXISTS discoveries(guild INTEGER, owner INTEGER, item TEXT, PRIMARY KEY(guild,owner,item));
     CREATE TABLE IF NOT EXISTS milestones(guild INTEGER, owner INTEGER, item TEXT, level INTEGER DEFAULT 0, PRIMARY KEY(guild,owner,item));
@@ -108,7 +110,7 @@ def sell(db,guild,owner,card_id,price):
         raise ValueError('Price cannot be negative')
     if not db.execute('DELETE FROM cards WHERE guild=? AND owner=? AND id=?',(guild,owner,card_id)).rowcount:
         return False
-    credit(db,guild,owner,price)
+    credit(db,guild,owner,price+sale_bonus(db,guild,owner))
     return True
 
 
@@ -211,3 +213,17 @@ def buy_card(db,guild,owner,item,rarity,price,request):
     earned=set_bonus(db,guild,owner,item)+card_set_bonus(db,guild,owner)
     db.execute('INSERT INTO card_purchases VALUES(?,?,?,?,?,?,?,?,?)',(str(request),guild,owner,card_id,item,rarity,price,earned,time.time()))
     return card_id,earned
+
+
+def mass_credit(db,guild,owner):
+    row=db.execute('SELECT amount FROM mass_credits WHERE guild=? AND owner=?',(guild,owner)).fetchone()
+    return row['amount'] if row else 0
+
+def adjust_mass_credit(db,guild,owner,delta):
+    previous=mass_credit(db,guild,owner)
+    current=max(0,previous+delta)
+    db.execute('INSERT INTO mass_credits(guild,owner,amount) VALUES(?,?,?) ON CONFLICT(guild,owner) DO UPDATE SET amount=excluded.amount',(guild,owner,current))
+    return current-previous,current
+
+def sale_bonus(db,guild,owner,quantity=1):
+    return (mass_credit(db,guild,owner)//10)*quantity

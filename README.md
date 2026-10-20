@@ -299,3 +299,11 @@ Run included tests with:
 The suite checks migration, claim bonuses, milestone repetition, full rarity sets, sales, insufficient balances, shop redemption ownership/replays, trade rewards, concurrent claims, listing order, variant labels and spawn timing. These are local database/mock checks. A Discord token/server is required for live interaction testing.
 
 Claim does nothing or error 4014: check Message Content Intent in the portal and restart. Check the channel and expiry. Blank image: open its URL in a private browser window and ensure it is an image. JSON error: check commas, double quotes and field types. Data missing: keep DATA_DIR and volume mount both at /data. New commands missing: check logs and TEST_GUILD_ID. If economy.py is missing in logs, upload it and the updated Dockerfile.
+
+### Mass doodles and Mass Credit
+
+- `/mass` shows a random OC from `draw_pool.json` and instructions for batches of at least 10 doodles at 10 chudlets per doodle. `/massown` provides the own-OC variant at 1 chudlet per doodle. **Submissions and rewards are reviewed and awarded manually** using `/cgive`; these commands do not automatically issue currency.
+- `/mcgive member amount` and `/mctake member amount` require administrator permission. Mass Credit is stored per server and player in SQLite and cannot fall below zero.
+- Each full 10 Mass Credit grants +1 chudlet **per card sold**, including when using `/sellall`. `/profile` shows Mass Credit, Chudlets, and the user's rarest card.
+- `/shop` includes **FREE CHARACTER** for 100,000 chudlets. Redeem using `/use-item`, then choose a character from https://toyhou.se/jsims/characters/folder:5635645 . Requests may be declined; the owner can arrange an alternate selection or refund manually with `/cgive`.
+- After restarting the bot, Discord slash commands are synced by the existing startup procedure.
