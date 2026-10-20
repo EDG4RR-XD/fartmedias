@@ -294,16 +294,15 @@
     }
   },
 
-
- 
-  {
-    "id": "Gamble",
-    "name": "Gamble",
-    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/NormalG",
+{
+    "id": "Deli",
+    "name": "Green Delicious",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191600.png",
     "weight": 10,
+    "sets": ["Deli"],
     "sell_value": 50,
     "rarity_sell_values": {
-       "normal": 50,
+        "normal": 50,
       "silver": 100,
       "gold": 200,
       "emerald": 300,
@@ -312,30 +311,215 @@
       "copper": 600,
       "ruby": 700,
       "sapphire": 800,
-      
       "holographic": 1000,
       "inverted": 1500,
        "glitch": 2000
     },
     "rarity_images": {
-      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/NormalG",
-      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/SilverG",
-      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/GoldG",
-      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/EmeraldG",
-      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/DiamondG",
-      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/ObG",
-         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/CopperG",
-      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/RubyG",
-      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/SapphG",
-      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/HoloG",
-      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/IngertedG",
-      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/GliitchG"
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191600.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191642.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191645.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191651.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191655.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191659.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191703.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191707.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191711.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191717.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191439.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191520.png"
     }
   },
+
+{
+    "id": "Deli2",
+    "name": "Green Delicious Variant 2",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/2",
+    "weight": 10,
+    "sets": ["Deli"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/2",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019192005.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019192008.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019192012.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019192016.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019192019.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019192023.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019192027.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019192031.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019192037.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191512.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191556.png"
+    }
+  },
+
+{
+    "id": "Deli3",
+    "name": "Green Delicious Variant 3",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191621.png",
+    "weight": 10,
+    "sets": ["Deli"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191621.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191826.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191834.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191838.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191842.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191848.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191852.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191855.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191859.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191903.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191508.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191541.png"
+    }
+  },
+
+{
+    "id": "Deli4",
+    "name": "Green Delicious Variant 4",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019212701.png",
+    "weight": 10,
+    "sets": ["Deli"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019212701.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191915.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191918.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191922.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191925.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191929.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191933.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191936.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191940.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191945.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191449.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191604.png"
+    }
+  },
+
+{
+    "id": "Deli5",
+    "name": "Green Delicious Variant 5",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191601.png",
+    "weight": 10,
+    "sets": ["Deli"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191601.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191728.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191734.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191739.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191744.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191750.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191754.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191759.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191804.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191811.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191444.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191528.png"
+    }
+  },
+
+{
+    "id": "Gamble",
+    "name": "Gamble",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190953.png",
+    "weight": 10,
+    "sets": ["Gamble"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190953.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191118.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191122.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191127.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191132.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191136.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191140.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191145.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191150.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191157.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191045.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191053.png"
+    }
+  },
+
 {
     "id": "Gamble2",
     "name": "Gamble Variant 2",
-    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161847.png",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190956.png",
     "weight": 10,
     "sets": ["Gamble"],
     "sell_value": 50,
@@ -354,26 +538,25 @@
        "glitch": 2000
     },
     "rarity_images": {
-      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161847.png",
-      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161734.png",
-      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161738.png",
-      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161742.png",
-      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161746.png",
-      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161751.png",
-         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161755.png",
-      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161800.png",
-      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161804.png",
-      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161811.png",
-      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161822.png",
-      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161832.png"
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190956.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185802.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185807.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185812.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185817.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185821.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185825.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185830.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185834.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185840.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190611.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190827.png"
     }
   },
 
-
-   {
+{
     "id": "Gamble3",
     "name": "Gamble Variant 3",
-    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162039.png",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190954.png",
     "weight": 10,
     "sets": ["Gamble"],
     "sell_value": 50,
@@ -392,61 +575,26 @@
        "glitch": 2000
     },
     "rarity_images": {
-      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162039.png",
-      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161928.png",
-      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161934.png",
-      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161939.png",
-      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161944.png",
-      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161948.png",
-         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161952.png",
-      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017161956.png",
-      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162000.png",
-      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162008.png",
-      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162017.png",
-      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162024.png"
-    }
-  },
- {
-    "id": "Gamble4",
-    "name": "Gamble Variant 4",
-    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162542.png",
-    "weight": 10,
-    "sets": ["Gamble"],
-    "sell_value": 50,
-    "rarity_sell_values": {
-        "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-       "glitch": 2000
-    },
-    "rarity_images": {
-      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162542.png",
-      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162253.png",
-      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162258.png",
-      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162302.png",
-      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162306.png",
-      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162310.png",
-         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162314.png",
-      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162320.png",
-      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162325.png",
-      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162332.png",
-      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162339.png",
-      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162347.png"
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190954.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019184942.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019184946.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019184950.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019184957.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185013.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185018.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185022.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185031.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185100.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190607.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190811.png"
     }
   },
 
- {
-    "id": "Gamble5",
-    "name": "Gamble Variant 5",
-    "image_url": "https://f2.toyhou.se/file/f2-toyhou-se/images/121297432_dxDg2jtXwywodS2.png",
+
+{
+    "id": "Gamble4",
+    "name": "Gamble Variant 4",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190958.png",
     "weight": 10,
     "sets": ["Gamble"],
     "sell_value": 50,
@@ -465,20 +613,251 @@
        "glitch": 2000
     },
     "rarity_images": {
-      "normal": "https://f2.toyhou.se/file/f2-toyhou-se/images/121297432_dxDg2jtXwywodS2.png",
-      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162719.png",
-      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162723.png",
-      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162727.png",
-      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162732.png",
-      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162736.png",
-         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162741.png",
-      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162745.png",
-      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162749.png",
-      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162756.png",
-      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162814.png",
-      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261017162822.png"
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190958.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185856.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185901.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185907.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185912.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185917.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185921.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185926.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185931.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185938.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190614.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190835.png"
     }
-  }
+  },
+
+{
+    "id": "GambleP",
+    "name": "Gamble Pride",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/1",
+    "weight": 10,
+    "sets": ["Gamble"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/1",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019185959.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190003.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190010.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190014.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190018.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190023.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190027.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190031.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190038.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190603.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019190801.png"
+    }
+  },
+
+{
+    "id": "Tangelo",
+    "name": "Tangelo",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019214433.png",
+    "weight": 10,
+    "sets": ["Tangelo"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019214433.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200319.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200326.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200330.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200334.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200337.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200341.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019214803.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200344.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200350.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195955.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200057.png"
+    }
+  },
+
+{
+    "id": "Tangelo2",
+    "name": "Tangelo Variant 2",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195839.png",
+    "weight": 10,
+    "sets": ["Tangelo"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195839.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200441.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200445.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200448.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200451.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200455.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200458.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200501.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200504.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200509.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195950.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200105.png"
+    }
+  },
+
+
+{
+    "id": "Tangelo3",
+    "name": "Tangelo Variant 3",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/5",
+    "weight": 10,
+    "sets": ["Tangelo"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/5",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200740.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200744.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200748.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200752.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200755.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200758.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200802.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200805.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200812.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019215438.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019215446.png"
+    }
+  },
+
+
+{
+    "id": "Tangelo4",
+    "name": "Tangelo Variant 4",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195841.png",
+    "weight": 10,
+    "sets": ["Tangelo"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195841.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200537.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200542.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200546.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200549.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200552.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200556.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200600.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200603.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200608.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195938.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200112.png"
+    }
+  },
+
+{
+    "id": "Tangelo5",
+    "name": "Tangelo Variant 5",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195843.png",
+    "weight": 10,
+    "sets": ["Tangelo"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195843.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200623.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200627.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200630.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200633.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200636.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200639.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200642.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200645.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200650.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195930.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019200122.png"
+    }
+  },
+
+
+
+
+
+
+
 
 
 
