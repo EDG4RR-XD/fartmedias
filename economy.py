@@ -21,6 +21,8 @@ SHOP = {
     'on_base_custom': ('FREE ON BASE CUSTOM', 20000),
     'off_base_custom': ('FREE OFF BASE CUSTOM', 40000),
     'free_character': ('FREE CHARACTER', 100000),
+    'headshot': ('HEADSHOT COMMISSION', 100000),
+    'fullbody': ('FULLBODY COMMISSION', 250000),
 }
 
 
