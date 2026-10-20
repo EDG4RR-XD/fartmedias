@@ -493,6 +493,49 @@
       "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191528.png"
     }
   },
+
+  {
+    "id": "Deli6",
+    "name": "Green Delicious Variant 6",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162644.png",
+    "weight": 10,
+ "sets": [
+      "Deli"
+    ],
+
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162644.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162722.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162725.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162730.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162733.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162738.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162741.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162744.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162747.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162715.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162650.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020162657.png"
+    }
+  },
+
+
+
   {
     "id": "Gamble",
     "name": "Gamble",
