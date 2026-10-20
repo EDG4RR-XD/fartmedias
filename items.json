@@ -852,6 +852,196 @@
     }
   },
 
+{
+    "id": "Sophie",
+    "name": "Sophie",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201527.png",
+    "weight": 10,
+    "sets": ["Sophie"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201527.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202109.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202112.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202115.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202118.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202121.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202124.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202130.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202133.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201917.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201613.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201542.png"
+    }
+  },
+{
+    "id": "Sophie2",
+    "name": "Sophie Variant 2",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201525.png",
+    "weight": 10,
+    "sets": ["Sophie"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201525.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202028.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202033.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202038.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202041.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202044.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202047.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202051.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202054.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201911.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201537.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201605.png"
+    }
+  },
+
+{
+    "id": "Sophie3",
+    "name": "Sophie Variant 3",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201529.png",
+    "weight": 10,
+    "sets": ["Sophie"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201529.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202143.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202147.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202150.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202153.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202158.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202202.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202208.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202211.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201923.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201545.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201625.png"
+    }
+  },
+
+{
+    "id": "Sophie4",
+    "name": "Sophie Variant 4",
+    "image_url": "image",
+    "weight": 10,
+    "sets": ["Sophie"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201531.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202226.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202229.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202234.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202237.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202241.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202244.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202248.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202251.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201950.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201547.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/6"
+    }
+  },
+
+
+{
+    "id": "Sophie5",
+    "name": "Sophie Variant 5",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201532.png",
+    "weight": 10,
+    "sets": ["Sophie"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201532.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202303.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202306.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202311.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202315.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202318.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202321.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202324.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019202328.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201957.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201552.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201645.png"
+    }
+  }
+
+
+
+
+
+
 
 
 
