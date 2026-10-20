@@ -2,8 +2,9 @@
   {
     "id": "Seadweller",
     "name": "Seadweller",
-    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Normaldweller",
-    "weight": 1,
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193057.png",
+    "weight": 5,
+    "sets": ["Seadweller"],
     "sell_value": 10,
     "rarity_sell_values": {
       "normal": 50,
@@ -20,28 +21,30 @@
       "glitch": 2000
     },
     "rarity_images": {
-      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Normaldweller",
-      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Silverdweller",
-      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Golddweller",
-      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Emeralddweller",
-      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Diamonddweller",
-      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/obdweller",
-      "copper": "https://file.garden/ZjgOFU74SkXuNmJS/CopperDweller",
-      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/RubyDweller",
-      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/SapphDweller",
-      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/HoloDweller",
-      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Inverteddweller",
-      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/GlitchDweller"
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193057.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193332.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193335.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193338.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193342.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193345.png",
+      "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193348.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193352.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193355.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193400.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193032.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193140.png"
     }
   },
-  {
-    "id": "Thistle",
-    "name": "Thistle",
-    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/NormalT",
-    "weight": 10,
+
+   {
+    "id": "Sea2",
+    "name": "Seadweller Variant 2",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/3",
+    "weight": 5,
+    "sets": ["Seadweller"],
     "sell_value": 50,
     "rarity_sell_values": {
-       "normal": 50,
+        "normal": 50,
       "silver": 100,
       "gold": 200,
       "emerald": 300,
@@ -50,26 +53,136 @@
       "copper": 600,
       "ruby": 700,
       "sapphire": 800,
-      
       "holographic": 1000,
       "inverted": 1500,
        "glitch": 2000
     },
     "rarity_images": {
-      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/NormalT",
-      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/silverT",
-      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/GoldT.png",
-      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/EmeraldT",
-      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/DiamondT",
-      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/ObT",
-         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/CopperT",
-      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/RubyThistle",
-      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/SapphireThistle",
-      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/HoloThistle",
-      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/InvertedT",
-      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/GlitchT"
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/3",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193430.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193434.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193437.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193440.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193443.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193446.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193449.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193453.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193459.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193036.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193147.png"
     }
   },
+
+  {
+    "id": "Sea3",
+    "name": "Seadweller Variant 3",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/121511112_y1FsI5l8DFoL66l%20(2).png",
+    "weight": 5,
+    "sets": ["Seadweller"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/121511112_y1FsI5l8DFoL66l%20(2).png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193524.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193528.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193531.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193534.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193545.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193542.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193545.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193548.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193558.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193040.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193158.png"
+    }
+  },
+{
+    "id": "Sea4",
+    "name": "Seadweller Variant 4",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1113_20261019192904.png",
+    "weight": 1,
+    "sets": ["Seadweller"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1113_20261019192904.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193614.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193617.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193630.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193634.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193637.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193640.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193644.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193648.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193708.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193047.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193204.png"
+    }
+  },
+
+ {
+    "id": "Thistle",
+    "name": "Thistle",
+    "image_url": "image",
+    "weight": 10,
+    "sets": ["Thistle"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "image",
+      "silver": "image",
+      "gold": "image",
+      "emerald": "image",
+      "diamond": "image",
+      "obsidian": "image",
+         "copper": "image",
+      "ruby": "image",
+      "sapphire": "image",
+      "holographic": "image",
+      "inverted": "image",
+      "glitch": "image"
+    }
+  },
+
   {
     "id": "Deli",
     "name": "Green Delicious",
