@@ -601,7 +601,7 @@ async def draw(interaction:discord.Interaction):
     choice=random.choice(DRAW_POOL)
     embed=discord.Embed(description='Draw this OC (Coloured, any) for 7500 Chudlets!')
     embed.set_image(url=choice['image_url'])
-    embed.set_footer(text='Submit your drawing to the server’s art reviewer. Chudlets are awarded manually after approval.')
+    embed.set_footer(text='Submit your drawing to me. Chudlets are awarded manually after approval.')
     await interaction.response.send_message(embed=embed)
 
 
