@@ -76,14 +76,45 @@ def set_bonus(db, guild, owner, item):
     return 0
 
 
-def award_claim(db, guild, owner, item, rarity):
-    recycled = db.execute('SELECT id FROM recycled_ids ORDER BY sold_at,id LIMIT 1').fetchone()
-    if recycled:
-        card_id = recycled['id']
-        db.execute('INSERT INTO cards(id,guild,owner,country,rarity) VALUES(?,?,?,?,?)', (card_id,guild,owner,item,rarity))
-        db.execute('DELETE FROM recycled_ids WHERE id=?', (card_id,))
+def allocate_card_id(db, guild, owner, item, rarity):
+    ###Fill the lowest missing historical ID, without taking auction escrow IDs.
+
+    # sqlite_sequence preserves the high-water mark across deleted card rows.
+    # The occupied IDs include auction listings because those must keep their ID.
+    # Call this in the same transaction as the rest of the claim/purchase.
+    # ###
+    high_row = db.execute("SELECT seq FROM sqlite_sequence WHERE name='cards'").fetchone()
+    high = high_row[0] if high_row else 0
+    next_id = 1
+    if high:
+        occupied = db.execute('''
+            SELECT id FROM cards WHERE id BETWEEN 1 AND ?
+            UNION
+            SELECT card_id FROM auction_listings WHERE card_id BETWEEN 1 AND ?
+            ORDER BY 1
+        ''', (high, high))
+        for row in occupied:
+            if row[0] > next_id:
+                break
+            if row[0] == next_id:
+                next_id += 1
+        if next_id > high:
+            next_id = None
     else:
-        card_id = db.execute('INSERT INTO cards(guild,owner,country,rarity) VALUES(?,?,?,?)', (guild,owner,item,rarity)).lastrowid
+        next_id = None
+    if next_id is None:
+        card_id = db.execute('INSERT INTO cards(guild,owner,country,rarity) VALUES(?,?,?,?)',
+                             (guild,owner,item,rarity)).lastrowid
+    else:
+        card_id = next_id
+        db.execute('INSERT INTO cards(id,guild,owner,country,rarity) VALUES(?,?,?,?,?)',
+                   (card_id,guild,owner,item,rarity))
+    db.execute('DELETE FROM recycled_ids WHERE id=?', (card_id,))
+    return card_id
+
+
+def award_claim(db, guild, owner, item, rarity):
+    card_id = allocate_card_id(db,guild,owner,item,rarity)
     reward = 0
     if db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)', (guild,owner,item)).rowcount:
         reward += 1000
@@ -229,7 +260,7 @@ def buy_card(db,guild,owner,item,rarity,price,request):
     credit(db,guild,owner,0)
     if not db.execute('UPDATE wallets SET amount=amount-? WHERE guild=? AND owner=? AND amount>=?',(price,guild,owner,price)).rowcount:
         return None
-    card_id=db.execute('INSERT INTO cards(guild,owner,country,rarity) VALUES(?,?,?,?)',(guild,owner,item,rarity)).lastrowid
+    card_id=allocate_card_id(db,guild,owner,item,rarity)
     db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)',(guild,owner,item))
     earned=set_bonus(db,guild,owner,item)+card_set_bonus(db,guild,owner)
     db.execute('INSERT INTO card_purchases VALUES(?,?,?,?,?,?,?,?,?)',(str(request),guild,owner,card_id,item,rarity,price,earned,time.time()))
