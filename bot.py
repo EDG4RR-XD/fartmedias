@@ -804,6 +804,122 @@ async def autocomplete_bounty_card(interaction:discord.Interaction,current:str):
     return [app_commands.Choice(name=f"{i['name']} ({i['id']})"[:100],value=i['id']) for i in ACTIVE_ITEMS if current.casefold() in i['name'].casefold() or current.casefold() in i['id'].casefold()][:25]
 
 
+class CardShopCardSelect(discord.ui.Select):
+    def __init__(self,shop):
+        self.shop=shop
+        super().__init__(placeholder='1. Choose a card',row=0,options=shop.card_options())
+
+    async def callback(self,interaction):
+        self.shop.card_id=self.values[0]
+        self.shop.refresh_controls()
+        await interaction.response.edit_message(embed=self.shop.make_embed(),view=self.shop)
+
+
+class CardShopRaritySelect(discord.ui.Select):
+    def __init__(self,shop):
+        self.shop=shop
+        super().__init__(placeholder='2. Choose a rarity',row=1,options=[discord.SelectOption(label=r.replace('_',' ').title(),value=r) for r in eco.RARITIES])
+
+    async def callback(self,interaction):
+        self.shop.rarity=self.values[0]
+        self.shop.refresh_controls()
+        await interaction.response.edit_message(embed=self.shop.make_embed(),view=self.shop)
+
+
+class CardShopView(discord.ui.View):
+    def __init__(self,guild,owner):
+        super().__init__(timeout=180)
+        self.guild,self.owner=guild,owner
+        self.cards=list(ITEMS)
+        self.page=0
+        self.card_id=None
+        self.rarity=None
+        self.finished=False
+        self.add_item(CardShopCardSelect(self))
+        self.add_item(CardShopRaritySelect(self))
+        self.refresh_controls()
+
+    async def interaction_check(self,interaction):
+        if interaction.user.id!=self.owner or interaction.guild_id!=self.guild:
+            await interaction.response.send_message('Open your own /cardshop to buy cards.',ephemeral=False)
+            return False
+        if self.finished:
+            await interaction.response.send_message('This purchase is complete. Open /cardshop again.',ephemeral=False)
+            return False
+        return True
+
+    def card_options(self):
+        return [discord.SelectOption(label=item['name'][:100],value=item['id'],description=f"Card ID: {item['id']}"[:100],default=item['id']==self.card_id) for item in self.cards[self.page*25:(self.page+1)*25]]
+
+    def refresh_controls(self):
+        self.previous_page.disabled=self.page==0
+        self.next_page.disabled=(self.page+1)*25>=len(self.cards)
+        self.purchase.disabled=self.card_id is None or self.rarity is None
+        for child in self.children:
+            if isinstance(child,CardShopCardSelect):
+                child.options=self.card_options()
+            if isinstance(child,CardShopRaritySelect):
+                for option in child.options:
+                    option.default=option.value==self.rarity
+        self.purchase.label='Buy selected card'
+        if self.card_id is not None and self.rarity is not None:
+            self.purchase.label=f'Buy · {sale_price(item_info(self.card_id),self.rarity)*5:,} chudlets'[:80]
+
+    def make_embed(self):
+        embed=discord.Embed(title='Card shop',description=f'<@{self.owner}> · Balance: {eco.balance(db,self.guild,self.owner):,} chudlets\nChoose a card and a rarity, then press Buy. Each copy costs 5× its sell value. Purchases count toward completion.')
+        if self.card_id is not None:
+            item=item_info(self.card_id)
+            embed.add_field(name='Card',value=discord.utils.escape_markdown(item['name']),inline=False)
+            if self.rarity is not None:
+                price=sale_price(item,self.rarity)
+                embed.add_field(name='Rarity and price',value=f'{self.rarity.replace("_"," ").title()} · Buy: {price*5:,} chudlets · Sell: {price:,}',inline=False)
+                image=image_for(item,self.rarity)
+                if image:
+                    embed.set_image(url=image)
+        embed.set_footer(text=f'Card menu page {self.page+1}/{max(1,(len(self.cards)+24)//25)} · Expires after 3 minutes of inactivity.')
+        return embed
+
+    @discord.ui.button(label='Previous cards',style=discord.ButtonStyle.secondary,row=2)
+    async def previous_page(self,interaction,button):
+        self.page=max(0,self.page-1)
+        self.card_id=None
+        self.refresh_controls()
+        await interaction.response.edit_message(embed=self.make_embed(),view=self)
+
+    @discord.ui.button(label='Next cards',style=discord.ButtonStyle.secondary,row=2)
+    async def next_page(self,interaction,button):
+        self.page=min(max(0,(len(self.cards)-1)//25),self.page+1)
+        self.card_id=None
+        self.refresh_controls()
+        await interaction.response.edit_message(embed=self.make_embed(),view=self)
+
+    @discord.ui.button(label='Buy selected card',style=discord.ButtonStyle.green,row=3,disabled=True)
+    async def purchase(self,interaction,button):
+        if self.finished or self.card_id is None or self.rarity not in eco.RARITIES:
+            return await interaction.response.send_message('Choose a card and rarity in an active shop first.',ephemeral=False)
+        item=item_info(self.card_id)
+        price=sale_price(item,self.rarity)*5
+        with db:
+            result=eco.buy_card(db,self.guild,self.owner,self.card_id,self.rarity,price,interaction.id)
+        if result is None:
+            return await interaction.response.send_message(f'You need {price:,} chudlets. Your balance is {eco.balance(db,self.guild,self.owner):,}.',ephemeral=False)
+        self.finished=True
+        self.stop()
+        card_id,earned=result
+        embed=discord.Embed(title='Card purchased',description=f"{discord.utils.escape_markdown(interaction.user.display_name)} bought **{discord.utils.escape_markdown(item['name'])} ({self.rarity.replace('_',' ').title()})** for {price:,} chudlets.\nCard #{card_id} added to your collection and completion progress.\nCompletion rewards: +{earned:,} chudlets.\nBalance: {eco.balance(db,self.guild,self.owner):,} chudlets.")
+        image=image_for(item,self.rarity)
+        if image:
+            embed.set_image(url=image)
+        await interaction.response.edit_message(embed=embed,view=None)
+
+
+@bot.tree.command(name='cardshop',description='Buy collectible cards in any rarity for 5 times their sell price.')
+@app_commands.guild_only()
+async def cardshop(interaction:discord.Interaction):
+    view=CardShopView(interaction.guild_id,interaction.user.id)
+    await interaction.response.send_message(embed=view.make_embed(),view=view,ephemeral=False)
+
+
 @bot.tree.error
 async def command_error(interaction, error):
     if isinstance(error, app_commands.MissingPermissions):

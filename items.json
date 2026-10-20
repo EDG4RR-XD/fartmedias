@@ -7,20 +7,20 @@
     "sets": [
       "Seadweller"
     ],
-    "sell_value": 10,
+    "sell_value": 30,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 150,
+      "silver": 300,
+      "gold": 600,
+      "emerald": 900,
+      "diamond": 1200,
+      "obsidian": 1500,
+      "copper": 1800,
+      "ruby": 2100,
+      "sapphire": 2400,
+      "holographic": 3000,
+      "inverted": 4500,
+      "glitch": 6000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019193057.png",
@@ -45,20 +45,20 @@
     "sets": [
       "Seadweller"
     ],
-    "sell_value": 50,
+    "sell_value": 150,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 150,
+      "silver": 300,
+      "gold": 600,
+      "emerald": 900,
+      "diamond": 1200,
+      "obsidian": 1500,
+      "copper": 1800,
+      "ruby": 2100,
+      "sapphire": 2400,
+      "holographic": 3000,
+      "inverted": 4500,
+      "glitch": 6000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/3",
@@ -83,20 +83,20 @@
     "sets": [
       "Seadweller"
     ],
-    "sell_value": 50,
+    "sell_value": 150,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 150,
+      "silver": 300,
+      "gold": 600,
+      "emerald": 900,
+      "diamond": 1200,
+      "obsidian": 1500,
+      "copper": 1800,
+      "ruby": 2100,
+      "sapphire": 2400,
+      "holographic": 3000,
+      "inverted": 4500,
+      "glitch": 6000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/121511112_y1FsI5l8DFoL66l%20%282%29.png",
@@ -121,20 +121,20 @@
     "sets": [
       "Seadweller"
     ],
-    "sell_value": 50,
+    "sell_value": 150,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 150,
+      "silver": 300,
+      "gold": 600,
+      "emerald": 900,
+      "diamond": 1200,
+      "obsidian": 1500,
+      "copper": 1800,
+      "ruby": 2100,
+      "sapphire": 2400,
+      "holographic": 3000,
+      "inverted": 4500,
+      "glitch": 6000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1113_20261019192904.png",
@@ -155,24 +155,24 @@
     "id": "Thistle",
     "name": "Thistle",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019194626.png",
-    "weight": 10,
+    "weight": 20,
     "sets": [
       "Thistle"
     ],
-    "sell_value": 50,
+    "sell_value": 25,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 25,
+      "silver": 50,
+      "gold": 100,
+      "emerald": 150,
+      "diamond": 200,
+      "obsidian": 250,
+      "copper": 300,
+      "ruby": 350,
+      "sapphire": 400,
+      "holographic": 500,
+      "inverted": 750,
+      "glitch": 1000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019194626.png",
@@ -193,24 +193,24 @@
     "id": "Thistle2",
     "name": "Thistle Variant 2",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019194628.png",
-    "weight": 10,
+    "weight": 20,
     "sets": [
       "Thistle"
     ],
-    "sell_value": 50,
+    "sell_value": 25,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 25,
+      "silver": 50,
+      "gold": 100,
+      "emerald": 150,
+      "diamond": 200,
+      "obsidian": 250,
+      "copper": 300,
+      "ruby": 350,
+      "sapphire": 400,
+      "holographic": 500,
+      "inverted": 750,
+      "glitch": 1000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019194628.png",
@@ -231,24 +231,24 @@
     "id": "Thistle3",
     "name": "Thistle Variant 3",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019194630.png",
-    "weight": 10,
+    "weight": 20,
     "sets": [
       "Thistle"
     ],
-    "sell_value": 50,
+    "sell_value": 25,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 25,
+      "silver": 50,
+      "gold": 100,
+      "emerald": 150,
+      "diamond": 200,
+      "obsidian": 250,
+      "copper": 300,
+      "ruby": 350,
+      "sapphire": 400,
+      "holographic": 500,
+      "inverted": 750,
+      "glitch": 1000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019194630.png",
@@ -269,24 +269,24 @@
     "id": "ThistleC",
     "name": "Thistle Classic",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019194632.png",
-    "weight": 10,
+    "weight": 20,
     "sets": [
       "Thistle"
     ],
-    "sell_value": 50,
+    "sell_value": 25,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 25,
+      "silver": 50,
+      "gold": 100,
+      "emerald": 150,
+      "diamond": 200,
+      "obsidian": 250,
+      "copper": 300,
+      "ruby": 350,
+      "sapphire": 400,
+      "holographic": 500,
+      "inverted": 750,
+      "glitch": 1000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019194632.png",
@@ -307,7 +307,7 @@
     "id": "Deli",
     "name": "Green Delicious",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191600.png",
-    "weight": 10,
+    "weight": 20,
     "sets": [
       "Deli"
     ],
@@ -345,7 +345,7 @@
     "id": "Deli2",
     "name": "Green Delicious Variant 2",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/2",
-    "weight": 10,
+    "weight": 20,
     "sets": [
       "Deli"
     ],
@@ -383,7 +383,7 @@
     "id": "Deli3",
     "name": "Green Delicious Variant 3",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191621.png",
-    "weight": 10,
+    "weight": 20,
     "sets": [
       "Deli"
     ],
@@ -421,7 +421,7 @@
     "id": "Deli4",
     "name": "Green Delicious Variant 4",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019212701.png",
-    "weight": 10,
+    "weight": 20,
     "sets": [
       "Deli"
     ],
@@ -459,7 +459,7 @@
     "id": "Deli5",
     "name": "Green Delicious Variant 5",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019191601.png",
-    "weight": 10,
+    "weight": 20,
     "sets": [
       "Deli"
     ],
@@ -687,24 +687,24 @@
     "id": "Tangelo",
     "name": "Tangelo",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019214433.png",
-    "weight": 10,
+    "weight": 8,
     "sets": [
       "Tangelo"
     ],
-    "sell_value": 50,
+    "sell_value": 100,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 100,
+      "silver": 200,
+      "gold": 400,
+      "emerald": 600,
+      "diamond": 800,
+      "obsidian": 1000,
+      "copper": 1200,
+      "ruby": 1400,
+      "sapphire": 1600,
+      "holographic": 2000,
+      "inverted": 3000,
+      "glitch": 4000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019214433.png",
@@ -725,24 +725,24 @@
     "id": "Tangelo2",
     "name": "Tangelo Variant 2",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195839.png",
-    "weight": 10,
+    "weight": 8,
     "sets": [
       "Tangelo"
     ],
-    "sell_value": 50,
+    "sell_value": 100,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 100,
+      "silver": 200,
+      "gold": 400,
+      "emerald": 600,
+      "diamond": 800,
+      "obsidian": 1000,
+      "copper": 1200,
+      "ruby": 1400,
+      "sapphire": 1600,
+      "holographic": 2000,
+      "inverted": 3000,
+      "glitch": 4000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195839.png",
@@ -763,24 +763,24 @@
     "id": "Tangelo3",
     "name": "Tangelo Variant 3",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/5",
-    "weight": 10,
+    "weight": 8,
     "sets": [
       "Tangelo"
     ],
-    "sell_value": 50,
+    "sell_value": 100,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 100,
+      "silver": 200,
+      "gold": 400,
+      "emerald": 600,
+      "diamond": 800,
+      "obsidian": 1000,
+      "copper": 1200,
+      "ruby": 1400,
+      "sapphire": 1600,
+      "holographic": 2000,
+      "inverted": 3000,
+      "glitch": 4000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/5",
@@ -801,24 +801,24 @@
     "id": "Tangelo4",
     "name": "Tangelo Variant 4",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195841.png",
-    "weight": 10,
+    "weight": 8,
     "sets": [
       "Tangelo"
     ],
-    "sell_value": 50,
+    "sell_value": 100,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 100,
+      "silver": 200,
+      "gold": 400,
+      "emerald": 600,
+      "diamond": 800,
+      "obsidian": 1000,
+      "copper": 1200,
+      "ruby": 1400,
+      "sapphire": 1600,
+      "holographic": 2000,
+      "inverted": 3000,
+      "glitch": 4000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195841.png",
@@ -839,24 +839,24 @@
     "id": "Tangelo5",
     "name": "Tangelo Variant 5",
     "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195843.png",
-    "weight": 10,
+    "weight": 8,
     "sets": [
       "Tangelo"
     ],
-    "sell_value": 50,
+    "sell_value": 100,
     "rarity_sell_values": {
-      "normal": 50,
-      "silver": 100,
-      "gold": 200,
-      "emerald": 300,
-      "diamond": 400,
-      "obsidian": 500,
-      "copper": 600,
-      "ruby": 700,
-      "sapphire": 800,
-      "holographic": 1000,
-      "inverted": 1500,
-      "glitch": 2000
+      "normal": 100,
+      "silver": 200,
+      "gold": 400,
+      "emerald": 600,
+      "diamond": 800,
+      "obsidian": 1000,
+      "copper": 1200,
+      "ruby": 1400,
+      "sapphire": 1600,
+      "holographic": 2000,
+      "inverted": 3000,
+      "glitch": 4000
     },
     "rarity_images": {
       "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019195843.png",

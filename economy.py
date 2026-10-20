@@ -29,6 +29,7 @@ def migrate(db):
         if 'rarity' not in columns:
             db.execute(f"ALTER TABLE {table} ADD COLUMN rarity TEXT NOT NULL DEFAULT 'normal'")
     db.executescript('''
+    CREATE TABLE IF NOT EXISTS card_purchases(request TEXT PRIMARY KEY, guild INTEGER, owner INTEGER, card_id INTEGER, item TEXT, rarity TEXT, price INTEGER, earned INTEGER, created_at REAL);
     CREATE TABLE IF NOT EXISTS set_definitions(id TEXT PRIMARY KEY, name TEXT, members TEXT);
     CREATE TABLE IF NOT EXISTS completed_card_sets(guild INTEGER, owner INTEGER, set_id TEXT, PRIMARY KEY(guild,owner,set_id));
     CREATE TABLE IF NOT EXISTS currency_transfers(request TEXT PRIMARY KEY, guild INTEGER, sender INTEGER, recipient INTEGER, amount INTEGER, created_at REAL);
@@ -191,3 +192,22 @@ def card_set_bonus(db,guild,owner):
     if earned:
         credit(db,guild,owner,earned)
     return earned
+
+
+def buy_card(db,guild,owner,item,rarity,price,request):
+    import time
+    if isinstance(price,bool) or not isinstance(price,int) or price<0 or rarity not in RARITIES:
+        raise ValueError('Invalid purchase price or rarity')
+    previous=db.execute('SELECT * FROM card_purchases WHERE request=?',(str(request),)).fetchone()
+    if previous:
+        if (previous['guild'],previous['owner'],previous['item'],previous['rarity'],previous['price'])!=(guild,owner,item,rarity,price):
+            return None
+        return previous['card_id'],previous['earned']
+    credit(db,guild,owner,0)
+    if not db.execute('UPDATE wallets SET amount=amount-? WHERE guild=? AND owner=? AND amount>=?',(price,guild,owner,price)).rowcount:
+        return None
+    card_id=db.execute('INSERT INTO cards(guild,owner,country,rarity) VALUES(?,?,?,?)',(guild,owner,item,rarity)).lastrowid
+    db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)',(guild,owner,item))
+    earned=set_bonus(db,guild,owner,item)+card_set_bonus(db,guild,owner)
+    db.execute('INSERT INTO card_purchases VALUES(?,?,?,?,?,?,?,?,?)',(str(request),guild,owner,card_id,item,rarity,price,earned,time.time()))
+    return card_id,earned

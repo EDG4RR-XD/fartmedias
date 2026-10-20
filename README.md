@@ -1,3 +1,25 @@
+## Latest update: /cardshop and character-family balancing
+
+Update bot.py, economy.py and items.json from this archive in your existing GitHub repository, then deploy the latest commit. This release is based on your uploaded fartmedias-main (2).zip. It retains your card IDs, images, sets, drawing pool, rarity probabilities and shop art reward definitions. Do not change DATA_DIR or remove the existing volume. Download /backup before deployment. No requirements.txt or Dockerfile changes are needed.
+
+/cardshop opens a PUBLIC menu with dropdown 1 for Card, dropdown 2 for Rarity, a Buy button, and Previous/Next card-page buttons. Your 29 cards span two dropdown pages because Discord limits each dropdown to 25 options. The Buy button stays disabled until both choices are selected. The preview shows the chosen variant image, sell price, purchase price and current balance. Each copy costs exactly five times its current effective sell value, including rarity-specific prices. Clicking Buy charges chudlets and gives one card copy. Other users can see the menu but only its owner can use its controls; others must open their own /cardshop. After a successful purchase the menu closes. Open /cardshop again to buy another copy. The menu expires after three minutes of inactivity or a bot restart.
+
+Purchased cards appear immediately in /collection, /view, /itemtrack, /settrack, /raritytrack and /list. They count toward completion. Completing a named set pays the existing one-time 10,000-chudlet bonus; completing all rarities of a base card pays the existing one-time 5000-chudlet bonus. Those payouts occur inside the purchase transaction. A previously paid reward does not pay again. Purchases record the base card as discovered and do not award first-claim, five-copy claim or card-trade bonuses. They do not reset the consecutive-claim restriction or clear a bounty. The shop sells all cards currently defined in items.json in all currently configured rarities, including weight-0 rarities/cards; old archived definitions removed from items.json are not in the menu.
+
+Payment, new card, discovery records, completion rewards and purchase receipt are committed atomically. Insufficient funds add no card. The same interaction cannot charge twice. A new card_purchases table stores transaction IDs, player/server, card ID, price, rarity and earned completion rewards and is included in database backups. If Discord cannot display the receipt after the transaction commits, /collection and /balance still show the saved result.
+
+Balancing changes apply to ALL base designs/variants of each named character family:
+
+- All four Seadweller entries: base and every rarity sell price ×3. Spawn weights unchanged.
+- All four Thistle entries: base and every rarity sell price ×0.5; spawn weights 10 to 20.
+- All five Tangelo entries: base and every rarity sell price ×2; each spawn weight 10 to 8.
+- All five Deli/Green Delicious entries: spawn weights 10 to 20; sale prices unchanged.
+- Gamble and Sophie entries: unchanged.
+
+For example, normal Seadweller variants now sell for 150 and cost 750; normal Thistle sells for 25 and costs 125; normal Tangelo sells for 100 and costs 500. The base sell_value fallback for the first Seadweller entry was 10 in your file and is now 30; its explicit normal rarity override was 50 and is now 150. These multipliers were applied once to the supplied configuration, not on every bot startup. Prices change for existing owned cards too because sales use the current configuration. Weights are relative, so doubling a weight increases relative frequency rather than guaranteeing exactly twice the final normalized percentage.
+
+Validation: eight card-shop tests plus sixteen existing tracking/bounty checks passed (24 focused checks). They cover menu selection/pagination/ownership, 5× pricing, insufficient funds, duplicate interactions, rollback, saved card/rarity ownership and one-time set/rarity completion payouts. All 29 definitions were checked against the original for the requested price/weight changes and preserved IDs/images/set memberships. Live Discord verification requires your deployed app.
+
 ## Latest update: /bountyset card rarity
 
 Example: /bountyset card:Seadweller rarity:gold. Use autocomplete to select a card and choose its rarity. One active bounty is saved per user per server. Setting another bounty replaces the previous one. It costs no chudlets and creates no currency rewards. Cards and rarities with zero random spawn weight cannot be selected.
