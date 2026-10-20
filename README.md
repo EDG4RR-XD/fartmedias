@@ -307,3 +307,27 @@ Claim does nothing or error 4014: check Message Content Intent in the portal and
 - Each full 10 Mass Credit grants +1 chudlet **per card sold**, including when using `/sellall`. `/profile` shows Mass Credit, Chudlets, and the user's rarest card.
 - `/shop` includes **FREE CHARACTER** for 100,000 chudlets. Redeem using `/use-item`, then choose a character from https://toyhou.se/jsims/characters/folder:5635645 . Requests may be declined; the owner can arrange an alternate selection or refund manually with `/cgive`.
 - After restarting the bot, Discord slash commands are synced by the existing startup procedure.
+
+## New commands and recycled IDs
+
+- `/collectionsearch card:<name> rarity:<optional> page:<optional>` searches your own collection.
+- `/cardsearch card:<name> rarity:<optional> page:<optional>` searches all current collections in this server and displays owners.
+- `/selllock card_id:<number>` toggles protection for a card against `/sellall` and `/sellalltype`. `/sell` and `/ahsell` remain deliberate individual actions and are allowed.
+- `/sellalltype card:<name> rarity:<optional> sell_last:<true/false>` proposes a bulk sale. By default, the last copy of each matching card-and-rarity combination is kept. To sell the last copies as well, set `sell_last:true`. Locks are respected. Confirmation is required.
+- `/ahsell card_id:<number> price:<number>` lists a card for sale, holding it in auction escrow. Listings persist in the SQLite database. `/ah page:<number>` shows up to 10 listings with a dropdown to inspect and buy, or to cancel your own listing. A sale pays the seller the advertised amount. Each listing retains its original card ID.
+- `/spawnspam` (Manage Server administrator) starts or restarts a five-minute period. The next spawn is due immediately; each successful claim schedules another spawn on the next spawn-loop tick (up to five seconds). The usual rule against the same person claiming two consecutive cards remains. An end announcement is posted in the spawn channel and usual scheduling resumes.
+
+Sold card IDs are stored in `recycled_ids` ordered by sale time and ID. The next *claimed spawn* uses the earliest freed ID, with a newly selected card identity and rarity. If several IDs are sold together, they are queued ascending by ID. IDs are global for the bot, matching the preexisting `cards.id` SQLite design; a freed ID can be reused by a claim on another server. Purchased `/cardshop` cards continue to receive new IDs. Auction escrow never releases the card ID to the recycle queue. New database tables are migrated automatically when the bot next starts.
+
+## Restoring the `/backup` ZIP
+
+`/backup` produces a ZIP containing `flags.db`, `user-data.json`, and `RESTORE.txt`. The SQLite `flags.db` contains the actual bot state; `user-data.json` is readable inspection data, and must not be used as a substitute for the database.
+
+1. Download the backup ZIP to your computer and keep a separate safety copy.
+2. Stop the bot process on your host. Do **not** restore while it is running.
+3. Extract `flags.db` from the ZIP.
+4. Find the bot's `DATA_DIR` (default `./data` relative to the running bot's working directory). Back up the current `DATA_DIR/flags.db` first, plus any `flags.db-wal` and `flags.db-shm` if they exist.
+5. Replace `DATA_DIR/flags.db` with the extracted `flags.db` while the bot remains stopped. If old `flags.db-wal` and `flags.db-shm` exist from the prior database, remove or archive those files so they are not used with the restored snapshot.
+6. Restart the bot. The schema migration runs automatically.
+
+**Important:** Use an **All servers** backup if you want to replace an existing database for a multi-server bot. A **This server** backup contains only one server's records; restoring that ZIP as the entire database will erase other servers' data. Backups contain economy data and card definitions saved in the DB, but not the Discord token or your `items.json`, `sets.json`, and `draw_pool.json` source files. Restore those project files separately if needed. Protect the backup: the command posts it publicly in the channel. If running in a container, restore the file inside the persistent data volume, rather than replacing only a disposable container file.

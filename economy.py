@@ -45,6 +45,9 @@ def migrate(db):
     CREATE TABLE IF NOT EXISTS purchases(id INTEGER PRIMARY KEY AUTOINCREMENT, guild INTEGER, owner INTEGER, product TEXT, used INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT);
     CREATE TABLE IF NOT EXISTS item_extras(id TEXT PRIMARY KEY, definition TEXT);
+    CREATE TABLE IF NOT EXISTS recycled_ids(id INTEGER PRIMARY KEY, sold_at REAL NOT NULL);
+    CREATE TABLE IF NOT EXISTS sell_locks(guild INTEGER, owner INTEGER, card_id INTEGER PRIMARY KEY);
+    CREATE TABLE IF NOT EXISTS auction_listings(card_id INTEGER PRIMARY KEY, guild INTEGER NOT NULL, seller INTEGER NOT NULL, item TEXT NOT NULL, rarity TEXT NOT NULL, price INTEGER NOT NULL, created_at REAL NOT NULL);
     ''')
     # Old inventory establishes history, without a surprise retrospective payout.
     if not db.execute("SELECT 1 FROM metadata WHERE key='economy_initialized'").fetchone():
@@ -74,7 +77,13 @@ def set_bonus(db, guild, owner, item):
 
 
 def award_claim(db, guild, owner, item, rarity):
-    card_id = db.execute('INSERT INTO cards(guild,owner,country,rarity) VALUES(?,?,?,?)', (guild,owner,item,rarity)).lastrowid
+    recycled = db.execute('SELECT id FROM recycled_ids ORDER BY sold_at,id LIMIT 1').fetchone()
+    if recycled:
+        card_id = recycled['id']
+        db.execute('INSERT INTO cards(id,guild,owner,country,rarity) VALUES(?,?,?,?,?)', (card_id,guild,owner,item,rarity))
+        db.execute('DELETE FROM recycled_ids WHERE id=?', (card_id,))
+    else:
+        card_id = db.execute('INSERT INTO cards(guild,owner,country,rarity) VALUES(?,?,?,?)', (guild,owner,item,rarity)).lastrowid
     reward = 0
     if db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)', (guild,owner,item)).rowcount:
         reward += 1000
@@ -112,8 +121,18 @@ def sell(db,guild,owner,card_id,price):
         raise ValueError('Price cannot be negative')
     if not db.execute('DELETE FROM cards WHERE guild=? AND owner=? AND id=?',(guild,owner,card_id)).rowcount:
         return False
+    recycle_ids(db,[card_id])
+    db.execute('DELETE FROM sell_locks WHERE card_id=?',(card_id,))
     credit(db,guild,owner,price+sale_bonus(db,guild,owner))
     return True
+
+
+def recycle_ids(db, ids):
+    import time
+    # The timestamp and ordered offset preserve sale order, including bulk sales.
+    now = time.time()
+    db.executemany('INSERT OR IGNORE INTO recycled_ids(id,sold_at) VALUES(?,?)',
+                   [(card_id, now + index * 0.000001) for index,card_id in enumerate(ids)])
 
 
 def buy(db,guild,owner,product):

@@ -166,6 +166,9 @@ async def on_message(message):
             db.execute('DELETE FROM bounties WHERE guild=? AND owner=? AND card=? AND rarity=?', (message.guild.id,message.author.id,row['country'],row['rarity']))
             db.execute('INSERT INTO claim_turns VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET owner=excluded.owner', (message.guild.id, message.author.id))
     item = item_info(row['country'])
+    if spam_active(message.guild.id):
+        with db:
+            db.execute('UPDATE settings SET next_spawn=? WHERE guild=?',(time.time(),message.guild.id))
     # Ownership is committed before any Discord API calls.
     try:
         await message.channel.send(f"{discord.utils.escape_markdown(message.author.display_name)} claimed **{discord.utils.escape_markdown(item['name'])} ({row['rarity']})**! Card #{card_id}. +{earned} chudlets.")
@@ -180,6 +183,14 @@ async def on_message(message):
 
 
 spawn_lock = asyncio.Lock()
+spam_until = {}  # Persisted in SQLite so spam periods survive restarts.
+with db:
+    db.execute('CREATE TABLE IF NOT EXISTS spam_periods(guild INTEGER PRIMARY KEY, until_time REAL NOT NULL)')
+
+def spam_active(guild):
+    row=db.execute('SELECT until_time FROM spam_periods WHERE guild=?',(guild,)).fetchone()
+    return bool(row and row['until_time'] > time.time())
+
 
 
 async def spawn(guild_id, channel, chosen_item=None, chosen_rarity=None):
@@ -225,6 +236,17 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None):
 @tasks.loop(seconds=5)
 async def spawn_loop():
     await expire_spawns()
+    expired=db.execute('SELECT guild FROM spam_periods WHERE until_time<=?',(time.time(),)).fetchall()
+    for expired_row in expired:
+        with db:
+            db.execute('DELETE FROM spam_periods WHERE guild=? AND until_time<=?',(expired_row['guild'],time.time()))
+        settings=db.execute('SELECT channel FROM settings WHERE guild=?',(expired_row['guild'],)).fetchone()
+        if settings:
+            try:
+                channel=bot.get_channel(settings['channel']) or await bot.fetch_channel(settings['channel'])
+                await channel.send('Spawn spam has ended. Normal 5-minute spawning has resumed.')
+            except discord.HTTPException:
+                logging.exception('Could not announce end of spawn spam')
     for row in db.execute('SELECT * FROM settings WHERE next_spawn<=?', (time.time(),)).fetchall():
         try:
             channel = bot.get_channel(row['channel']) or await bot.fetch_channel(row['channel'])
@@ -700,12 +722,15 @@ class SellAllView(discord.ui.View):
             return await interaction.response.send_message('This sale has already been handled.',ephemeral=False)
         self.finished=True
         with db:
-            current=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? ORDER BY id',(self.guild,self.owner)).fetchall()
+            current=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? AND id NOT IN (SELECT card_id FROM sell_locks) ORDER BY id',(self.guild,self.owner)).fetchall()
             current_quote=[(r['id'],sale_price(item_info(r['country']),r['rarity'])) for r in current]
             valid=current_quote==self.quoted
             if valid:
                 total=sum(price for _,price in self.quoted)+eco.sale_bonus(db,self.guild,self.owner,len(self.quoted))
-                db.execute('DELETE FROM cards WHERE guild=? AND owner=?',(self.guild,self.owner))
+                ids=[r['id'] for r in current]
+                db.executemany('DELETE FROM cards WHERE guild=? AND owner=? AND id=?',[(self.guild,self.owner,i) for i in ids])
+                eco.recycle_ids(db,ids)
+                db.executemany('DELETE FROM sell_locks WHERE card_id=?',[(i,) for i in ids])
                 eco.credit(db,self.guild,self.owner,total)
         self.stop()
         await interaction.response.edit_message(content=f'Sold {len(self.quoted)} cards for {total:,} chudlets.' if valid else 'Sale cancelled: your collection or its prices changed. Run /sellall again for a new quote.',view=None)
@@ -724,12 +749,12 @@ class SellAllView(discord.ui.View):
 @bot.tree.command(name='sellall',description='Sell every card you own in this server, after confirmation.')
 @app_commands.guild_only()
 async def sellall(interaction:discord.Interaction):
-    rows=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? ORDER BY id',(interaction.guild_id,interaction.user.id)).fetchall()
+    rows=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? AND id NOT IN (SELECT card_id FROM sell_locks) ORDER BY id',(interaction.guild_id,interaction.user.id)).fetchall()
     if not rows:
         return await interaction.response.send_message('You have no cards to sell in this server.',ephemeral=False)
     quoted=[(r['id'],sale_price(item_info(r['country']),r['rarity'])) for r in rows]
     total=sum(price for _,price in quoted)+eco.sale_bonus(db,interaction.guild_id,interaction.user.id,len(quoted))
-    await interaction.response.send_message(f'Sell ALL {len(rows)} of your cards, including every rarity and your last copies, for {total:,} chudlets? This removes your entire card collection in this server. Shop items are unaffected. Confirm within 60 seconds.',view=SellAllView(interaction.guild_id,interaction.user.id,quoted),ephemeral=False)
+    await interaction.response.send_message(f'Sell {len(rows)} unlocked cards, including their last copies, for {total:,} chudlets? Locked cards will remain in your collection. Shop items are unaffected. Confirm within 60 seconds.',view=SellAllView(interaction.guild_id,interaction.user.id,quoted),ephemeral=False)
 
 
 def owned_item_counts(guild_id,owner):
@@ -974,6 +999,181 @@ async def cardshop(interaction:discord.Interaction):
     view=CardShopView(interaction.guild_id,interaction.user.id)
     await interaction.response.send_message(embed=view.make_embed(),view=view,ephemeral=False)
 
+
+
+
+def matched_card_ids(guild, owner, card, rarity=None, sell_last=True, respect_locks=False):
+    rows=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? ORDER BY id',(guild,owner)).fetchall()
+    chosen=[r for r in rows if (not card or card.casefold() in item_info(r['country'])['name'].casefold() or card.casefold()==r['country'].casefold()) and (not rarity or rarity==r['rarity'])]
+    if not sell_last:
+        counts={}
+        for row in rows:
+            key=(row['country'],row['rarity'])
+            counts[key]=counts.get(key,0)+1
+        keep=set()
+        for row in reversed(chosen):
+            key=(row['country'],row['rarity'])
+            if counts.get(key,0)>1:
+                counts[key]-=1
+            else:
+                keep.add(row['id'])
+        chosen=[r for r in chosen if r['id'] not in keep]
+    if respect_locks:
+        locks={r['card_id'] for r in db.execute('SELECT card_id FROM sell_locks WHERE guild=? AND owner=?',(guild,owner))}
+        chosen=[r for r in chosen if r['id'] not in locks]
+    return chosen
+
+
+@bot.tree.command(name='collectionsearch',description='Search your collection by card name and optional rarity.')
+@app_commands.guild_only()
+@app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
+async def collectionsearch(interaction:discord.Interaction,card:str='',rarity:str=None,page:app_commands.Range[int,1,100000]=1):
+    rows=matched_card_ids(interaction.guild_id,interaction.user.id,card,rarity)
+    portion=rows[(page-1)*20:page*20]
+    text='\n'.join(f"#{r['id']} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {r['rarity']}" for r in portion) or 'No matching cards.'
+    await interaction.response.send_message(embed=discord.Embed(title=f'Collection search ({len(rows)} found) · Page {page}',description=text))
+
+@bot.tree.command(name='cardsearch',description='Find cards of a type and the players who own them.')
+@app_commands.guild_only()
+@app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
+async def cardsearch(interaction:discord.Interaction,card:str='',rarity:str=None,page:app_commands.Range[int,1,100000]=1):
+    rows=db.execute('SELECT id,country,rarity,owner FROM cards WHERE guild=? ORDER BY id',(interaction.guild_id,)).fetchall()
+    chosen=[r for r in rows if (not card or card.casefold() in item_info(r['country'])['name'].casefold() or card.casefold()==r['country'].casefold()) and (not rarity or rarity==r['rarity'])]
+    portion=chosen[(page-1)*15:page*15]
+    text='\n'.join(f"#{r['id']} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} ({r['rarity']}) · <@{r['owner']}>" for r in portion) or 'No matching cards.'
+    await interaction.response.send_message(embed=discord.Embed(title=f'All collections ({len(chosen)} found) · Page {page}',description=text))
+
+@bot.tree.command(name='selllock',description='Toggle protection against /sellall and /sellalltype.')
+@app_commands.guild_only()
+async def selllock(interaction:discord.Interaction,card_id:int):
+    row=db.execute('SELECT 1 FROM cards WHERE guild=? AND owner=? AND id=?',(interaction.guild_id,interaction.user.id,card_id)).fetchone()
+    if not row:
+        return await interaction.response.send_message('You do not own that card.')
+    with db:
+        if db.execute('SELECT 1 FROM sell_locks WHERE card_id=?',(card_id,)).fetchone():
+            db.execute('DELETE FROM sell_locks WHERE card_id=?',(card_id,)); result='Unlocked'
+        else:
+            db.execute('INSERT INTO sell_locks VALUES(?,?,?)',(interaction.guild_id,interaction.user.id,card_id));result='Locked'
+    await interaction.response.send_message(f'{result} card #{card_id}.')
+
+class BulkTypeConfirm(discord.ui.View):
+    def __init__(self,guild,owner,ids):
+        super().__init__(timeout=60);self.guild=guild;self.owner=owner;self.ids=ids;self.finished=False
+    @discord.ui.button(label='Confirm sale',style=discord.ButtonStyle.danger)
+    async def confirm(self,interaction,button):
+        if interaction.user.id!=self.owner:
+            return await interaction.response.send_message('This sale belongs to another player.',ephemeral=True)
+        if self.finished: return await interaction.response.send_message('Already processed.',ephemeral=True)
+        self.finished=True
+        with db:
+            rows=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? AND id NOT IN (SELECT card_id FROM sell_locks)',(self.guild,self.owner)).fetchall()
+            selling=[r for r in rows if r['id'] in self.ids]
+            valid=len(selling)==len(self.ids)
+            if valid:
+                prices=sum(sale_price(item_info(r['country']),r['rarity']) for r in selling)
+                total=prices+eco.sale_bonus(db,self.guild,self.owner,len(selling))
+                db.executemany('DELETE FROM cards WHERE id=?',[(r['id'],) for r in selling])
+                eco.recycle_ids(db,self.ids)
+                eco.credit(db,self.guild,self.owner,total)
+        self.stop()
+        await interaction.response.edit_message(content=f'Sold {len(self.ids)} cards for {total:,} chudlets.' if valid else 'Sale cancelled because cards changed or were locked.',view=None)
+    @discord.ui.button(label='Cancel',style=discord.ButtonStyle.secondary)
+    async def cancel(self,interaction,button):
+        if interaction.user.id!=self.owner: return await interaction.response.send_message('Not your sale.',ephemeral=True)
+        self.stop();await interaction.response.edit_message(content='Sale cancelled.',view=None)
+
+@bot.tree.command(name='sellalltype',description='Sell matching cards, optionally retaining the last copy of each rarity.')
+@app_commands.guild_only()
+@app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
+async def sellalltype(interaction:discord.Interaction,card:str,rarity:str=None,sell_last:bool=False):
+    rows=matched_card_ids(interaction.guild_id,interaction.user.id,card,rarity,sell_last,True)
+    if not rows: return await interaction.response.send_message('No eligible unlocked cards found.')
+    ids=[r['id'] for r in rows]
+    total=sum(sale_price(item_info(r['country']),r['rarity']) for r in rows)+eco.sale_bonus(db,interaction.guild_id,interaction.user.id,len(rows))
+    await interaction.response.send_message(f'Sell {len(ids)} matching cards for {total:,} chudlets? Locked cards are skipped. sell_last={sell_last}. Confirm within 60 seconds.',view=BulkTypeConfirm(interaction.guild_id,interaction.user.id,ids))
+
+@bot.tree.command(name='ahsell',description='List your card for sale to other members for chudlets.')
+@app_commands.guild_only()
+async def ahsell(interaction:discord.Interaction,card_id:int,price:app_commands.Range[int,1,1000000000]):
+    with db:
+        row=db.execute('SELECT * FROM cards WHERE id=? AND guild=? AND owner=?',(card_id,interaction.guild_id,interaction.user.id)).fetchone()
+        if row:
+            db.execute('INSERT INTO auction_listings VALUES(?,?,?,?,?,?,?)',(card_id,interaction.guild_id,interaction.user.id,row['country'],row['rarity'],price,time.time()))
+            db.execute('DELETE FROM sell_locks WHERE card_id=?',(card_id,))
+            db.execute('DELETE FROM cards WHERE id=?',(card_id,))
+    await interaction.response.send_message(f'Listed card #{card_id} for {price:,} chudlets. Use /ah to find it.' if row else 'You do not own that card.')
+
+class AuctionBuy(discord.ui.View):
+    def __init__(self,listing):
+        super().__init__(timeout=120);self.listing=listing
+    @discord.ui.button(label='Buy card',style=discord.ButtonStyle.green)
+    async def buy(self,interaction,button):
+        listing=self.listing
+        if interaction.guild_id!=listing['guild']:return await interaction.response.send_message('Wrong server.',ephemeral=True)
+        if interaction.user.id==listing['seller']:return await interaction.response.send_message('You cannot buy your own listing.',ephemeral=True)
+        with db:
+            current=db.execute('SELECT * FROM auction_listings WHERE card_id=?',(listing['card_id'],)).fetchone()
+            if current:
+                eco.credit(db,interaction.guild_id,interaction.user.id,0)
+                paid=db.execute('UPDATE wallets SET amount=amount-? WHERE guild=? AND owner=? AND amount>=?',(current['price'],interaction.guild_id,interaction.user.id,current['price'])).rowcount
+                if paid:
+                    eco.credit(db,interaction.guild_id,current['seller'],current['price'])
+                    db.execute('INSERT INTO cards(id,guild,owner,country,rarity) VALUES(?,?,?,?,?)',(current['card_id'],interaction.guild_id,interaction.user.id,current['item'],current['rarity']))
+                    db.execute('DELETE FROM auction_listings WHERE card_id=?',(current['card_id'],))
+                    db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)',(interaction.guild_id,interaction.user.id,current['item']))
+                    eco.set_bonus(db,interaction.guild_id,interaction.user.id,current['item'])
+                    eco.card_set_bonus(db,interaction.guild_id,interaction.user.id)
+        if not current: return await interaction.response.send_message('This listing is no longer available.',ephemeral=True)
+        if not paid: return await interaction.response.send_message('Insufficient chudlets.',ephemeral=True)
+        self.stop();await interaction.response.edit_message(content=f'Purchased card #{current["card_id"]} for {current["price"]:,} chudlets!',embed=None,view=None)
+    @discord.ui.button(label='Cancel listing (seller)',style=discord.ButtonStyle.secondary)
+    async def cancel(self,interaction,button):
+        listing=self.listing
+        if interaction.user.id!=listing['seller']:return await interaction.response.send_message('Only the seller can cancel.',ephemeral=True)
+        with db:
+            current=db.execute('SELECT * FROM auction_listings WHERE card_id=? AND seller=?',(listing['card_id'],interaction.user.id)).fetchone()
+            if current:
+                db.execute('INSERT INTO cards(id,guild,owner,country,rarity) VALUES(?,?,?,?,?)',(current['card_id'],current['guild'],current['seller'],current['item'],current['rarity']))
+                db.execute('DELETE FROM auction_listings WHERE card_id=?',(current['card_id'],))
+        self.stop();await interaction.response.edit_message(content='Listing cancelled; card returned.' if current else 'Listing no longer available.',embed=None,view=None)
+
+@bot.tree.command(name='ah',description='Browse auction listings and buy cards.')
+@app_commands.guild_only()
+async def ah(interaction:discord.Interaction,page:app_commands.Range[int,1,100000]=1):
+    rows=db.execute('SELECT * FROM auction_listings WHERE guild=? ORDER BY created_at,card_id LIMIT 10 OFFSET ?',(interaction.guild_id,(page-1)*10)).fetchall()
+    if not rows:return await interaction.response.send_message('No listings on this page.')
+    embeds=[]
+    for row in rows:
+        embed=discord.Embed(title=f"#{row['card_id']} · {item_info(row['item'])['name']}",description=f"{row['rarity']} · {row['price']:,} chudlets · Seller <@{row['seller']}>")
+        img=image_for(item_info(row['item']),row['rarity'])
+        if img: embed.set_thumbnail(url=img)
+        embeds.append(embed)
+    view=AuctionSelect(rows)
+    await interaction.response.send_message(content=f'Auction market · Page {page}. Select a card to buy or cancel your listing.',embeds=embeds,view=view)
+
+class AuctionSelect(discord.ui.View):
+    def __init__(self,rows):
+        super().__init__(timeout=120)
+        options=[discord.SelectOption(label=f"#{r['card_id']} · {item_info(r['item'])['name'][:55]}",value=str(r['card_id'])) for r in rows]
+        select=discord.ui.Select(placeholder='Choose a listing',options=options)
+        async def selected(interaction):
+            card_id=int(select.values[0]);row=db.execute('SELECT * FROM auction_listings WHERE guild=? AND card_id=?',(interaction.guild_id,card_id)).fetchone()
+            if not row: return await interaction.response.send_message('Listing unavailable.',ephemeral=True)
+            await interaction.response.send_message(f"Card #{card_id}: {item_info(row['item'])['name']} ({row['rarity']}) · {row['price']:,} chudlets",view=AuctionBuy(dict(row)),ephemeral=True)
+        select.callback=selected;self.add_item(select)
+
+@bot.tree.command(name='spawnspam',description='Administrator: continuously spawn on claim for five minutes.')
+@app_commands.guild_only()
+@app_commands.default_permissions(administrator=True)
+@app_commands.checks.has_permissions(administrator=True)
+async def spawnspam(interaction:discord.Interaction):
+    settings=db.execute('SELECT channel FROM settings WHERE guild=?',(interaction.guild_id,)).fetchone()
+    if not settings: return await interaction.response.send_message('Use /setup to configure the spawn channel first.',ephemeral=True)
+    until=time.time()+300
+    with db:
+        db.execute('INSERT INTO spam_periods VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET until_time=excluded.until_time',(interaction.guild_id,until))
+        db.execute('UPDATE settings SET next_spawn=? WHERE guild=?',(time.time(),interaction.guild_id))
+    await interaction.response.send_message('Spawn spam enabled for 5 minutes. A new card will spawn after each claim; an ending announcement will be sent.')
 
 @bot.tree.error
 async def command_error(interaction, error):
