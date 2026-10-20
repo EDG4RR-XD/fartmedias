@@ -1062,5 +1062,386 @@
       "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201552.png",
       "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261019201645.png"
     }
+  },
+
+  {
+    "id": "Dew",
+    "name": "Dew",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095132.png",
+    "weight": 10,
+    "sets": ["Dew"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095132.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095604.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095607.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095610.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095614.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095617.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095620.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095623.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095626.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095251.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095144.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095214.png"
+    }
+  },
+
+{
+    "id": "Dew2",
+    "name": "Dew Variant 2",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/22",
+    "weight": 10,
+    "sets": ["Dew"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/22",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095516.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095520.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095524.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095527.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095531.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095535.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095538.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095541.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095247.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095141.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095203.png"
+    }
+  },
+{
+    "id": "Dew3",
+    "name": "Dew Variant 3",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095134.png",
+    "weight": 10,
+    "sets": ["Dew"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095134.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/12312323213123",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020102235.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020102239.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020102242.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020102245.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020102248.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020102252.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020102255.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095316.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095146.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095221.png"
+    }
+  },
+{
+    "id": "Dew4",
+    "name": "Dew Variant 4",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095136.png",
+    "weight": 10,
+    "sets": ["Dew"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095136.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095650.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095654.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095657.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095700.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095703.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095707.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095711.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095714.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095338.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095149.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020095229.png"
+    }
+  },
+
+{
+    "id": "Fever",
+    "name": "Fever",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100516.png",
+    "weight": 10,
+    "sets": ["Fever"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100516.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100933.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100944.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100947.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100952.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100956.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100959.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101003.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101006.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100652.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/33",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100554.png"
+    }
+  },
+
+
+{
+    "id": "Fever2",
+    "name": "Fever Variant 2",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100518.png",
+    "weight": 10,
+    "sets": ["Fever"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100518.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101036.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101042.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101046.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101049.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101052.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101056.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101059.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101102.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100701.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100531.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100602.png"
+    }
+  },
+
+{
+    "id": "Fever3",
+    "name": "Fever Variant 3",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100519.png",
+    "weight": 10,
+    "sets": ["Fever"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100519.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101114.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101117.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101121.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101124.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101127.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101130.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101134.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101136.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100712.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100535.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100610.png"
+    }
+  },
+
+
+{
+    "id": "Fever4",
+    "name": "Fever Variant 4",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100521.png",
+    "weight": 10,
+    "sets": ["Fever"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100521.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101216.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101219.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101223.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101226.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101229.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101232.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101235.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101239.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100721.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100538.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100617.png"
+    }
+  },
+
+
+
+{
+    "id": "Fever5",
+    "name": "Fever Variant 5",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100523.png",
+    "weight": 10,
+    "sets": ["Fever"],
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100523.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101311.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101314.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101317.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101322.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101325.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101329.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101333.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101336.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100730.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100542.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020100625.png"
+    }
+  },
+
+{
+    "id": "Solitaire",
+    "name": "Solitaire",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/44",
+    "weight": 10,
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/44",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101534.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101537.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101540.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101543.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101547.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101550.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101553.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101556.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101528.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101506.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261020101514.png"
+    }
   }
+
+
+
+
+
+
+
+
+
+
 ]
