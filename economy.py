@@ -84,6 +84,8 @@ def migrate(db):
         SELECT card_id,guild,seller,item,rarity,price,created_at FROM auction_listings_old;
         DROP TABLE auction_listings_old;
         ''')
+    if 'raritycompletion' not in {r[1] for r in db.execute('PRAGMA table_info(profile_customizations)')}:
+        db.execute('ALTER TABLE profile_customizations ADD COLUMN raritycompletion INTEGER NOT NULL DEFAULT 0')
     # Old inventory establishes history, without a surprise retrospective payout.
     if not db.execute("SELECT 1 FROM metadata WHERE key='economy_initialized'").fetchone():
         with db:

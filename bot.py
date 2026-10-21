@@ -803,8 +803,8 @@ async def mctake(interaction:discord.Interaction,member:discord.Member,amount:ap
 
 @bot.tree.command(name='profilecustomize', description='Customize your profile. Omitted options keep their current values.')
 @app_commands.guild_only()
-@app_commands.describe(accentcolour='Hex colour, e.g. #64D545; use reset to clear.', footerimage='HTTP(S) image URL; use reset to clear.', favoritecard='Owned card ID; use 0 to clear.', setcompletion='Display currently completed card sets.')
-async def profilecustomize(interaction: discord.Interaction, accentcolour: str = None, footerimage: str = None, favoritecard: int = None, setcompletion: bool = None):
+@app_commands.describe(accentcolour='Hex colour, e.g. #64D545; use reset to clear.', footerimage='HTTP(S) image URL; use reset to clear.', favoritecard='Owned card ID; use 0 to clear.', setcompletion='Display currently completed card sets.', raritycompletion='Display cards for which you currently own every base rarity.')
+async def profilecustomize(interaction: discord.Interaction, accentcolour: str = None, footerimage: str = None, favoritecard: int = None, setcompletion: bool = None, raritycompletion: bool = None):
     updates = {}
     if accentcolour is not None:
         colour = accentcolour.strip().lstrip('#')
@@ -828,6 +828,8 @@ async def profilecustomize(interaction: discord.Interaction, accentcolour: str =
         updates['favoritecard'] = favoritecard or None
     if setcompletion is not None:
         updates['setcompletion'] = int(setcompletion)
+    if raritycompletion is not None:
+        updates['raritycompletion'] = int(raritycompletion)
     if not updates:
         return await interaction.response.send_message('Choose any profile option to update. Use reset for the colour or image, or favoritecard:0 to clear the featured card.')
     with db:
@@ -875,6 +877,16 @@ async def profile(interaction:discord.Interaction,user:discord.Member=None):
         completed = [d['name'] for d in eco.SET_DEFINITIONS.values() if d['members'] and d['members'] <= owned]
         text = '\n'.join(completed) or 'None yet.'
         embed.add_field(name=f'Sets completed ({len(completed)}/{len(eco.SET_DEFINITIONS)})', value=text[:1024], inline=False)
+    if custom and custom['raritycompletion']:
+        rarities_by_card = {}
+        for row in rows:
+            rarities_by_card.setdefault(row['country'], set()).add(row['rarity'])
+        completed = sorted((item for item, rarities in rarities_by_card.items() if set(eco.RARITIES) <= rarities), key=lambda item: item_info(item)['name'].casefold())
+        names = [discord.utils.escape_markdown(item_info(item)['name']) for item in completed]
+        text = '\n'.join(names) or 'None yet.'
+        if len(text) > 1024:
+            text = text[:1000].rsplit('\n', 1)[0] + '\n…'
+        embed.add_field(name=f'Rarity sets completed ({len(completed)})', value=text, inline=False)
     if custom and custom['footerimage']:
         embed.set_image(url=custom['footerimage'])
     embed.set_footer(text=f'Mass Credit sale bonus: +{mc//10:,} chudlets per card sold.')

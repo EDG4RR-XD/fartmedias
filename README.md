@@ -371,3 +371,5 @@ Locked copies display 🔒 beside their IDs in collections and searches; /list m
 All fields are optional and scoped to this server. Hex colours use six digits. Use reset for colour/image, and favoritecard:0 to clear the featured card. Footer images use Discord's full-width profile embed image. Set completion displays currently held card sets.
 /favorite card_id toggles a cosmetic heart. This does not lock the card or change its value. Favourites and featured-card selections clear when a copy is sold or transferred.
 ✨ marks Holographic, Inverted, Glitch and any flipped card in spawns and listings.
+
+/profilecustomize raritycompletion:True shows cards for which you currently own every base rarity. Set False to hide it. Flips do not add required rarities. Omitted options keep their saved values.
