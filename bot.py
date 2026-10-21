@@ -391,17 +391,44 @@ async def force_spawn(interaction: discord.Interaction):
     await interaction.followup.send('Spawned.' if done else 'There is already an active image.', ephemeral=False)
 
 
+def card_index(card_id):
+    locked = db.execute('SELECT 1 FROM sell_locks WHERE card_id=?', (card_id,)).fetchone()
+    return f"#{card_id}" + (' 🔒' if locked else '')
+
+
+async def send_collection(interaction, member, page, locked=None):
+    member = member or interaction.user
+    query = 'FROM cards WHERE guild=? AND owner=?'
+    params = (interaction.guild_id, member.id)
+    if locked is not None:
+        query += (' AND ' + ('' if locked else 'NOT ') +
+                  'EXISTS (SELECT 1 FROM sell_locks WHERE card_id=cards.id)')
+    total = db.execute('SELECT COUNT(*) ' + query, params).fetchone()[0]
+    rows = db.execute('SELECT * ' + query + ' ORDER BY id LIMIT 20 OFFSET ?',
+                      (*params, (page-1)*20)).fetchall()
+    lines = [f"{card_index(r['id'])} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {variant_label(r['rarity'], *flip_flags(r))}" for r in rows]
+    label = 'collection' if locked is None else ('locked cards' if locked else 'unlocked cards')
+    embed = discord.Embed(title=f'{member.display_name}’s {label}', description='\n'.join(lines) or 'No cards on this page.')
+    embed.set_footer(text=f'{total} cards · Page {page}/{max(1, (total+19)//20)} · Collections are per server')
+    await interaction.response.send_message(embed=embed, ephemeral=False)
+
+
+@bot.tree.command(name='collectionlocked', description='View only locked cards in a collection.')
+@app_commands.guild_only()
+async def collectionlocked(interaction: discord.Interaction, member: discord.Member = None, page: app_commands.Range[int, 1, 100000] = 1):
+    await send_collection(interaction, member, page, locked=True)
+
+
+@bot.tree.command(name='collectionunlocked', description='View only unlocked cards in a collection.')
+@app_commands.guild_only()
+async def collectionunlocked(interaction: discord.Interaction, member: discord.Member = None, page: app_commands.Range[int, 1, 100000] = 1):
+    await send_collection(interaction, member, page, locked=False)
+
+
 @bot.tree.command(name='collection', description='View a collection and card IDs for trading.')
 @app_commands.guild_only()
 async def collection(interaction: discord.Interaction, member: discord.Member = None, page: app_commands.Range[int, 1, 100000] = 1):
-    member = member or interaction.user
-    total = db.execute('SELECT COUNT(*) FROM cards WHERE guild=? AND owner=?', (interaction.guild_id, member.id)).fetchone()[0]
-    rows = db.execute('SELECT * FROM cards WHERE guild=? AND owner=? ORDER BY id LIMIT 20 OFFSET ?',
-                      (interaction.guild_id, member.id, (page-1)*20)).fetchall()
-    lines = [f"#{r['id']} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {variant_label(r['rarity'], *flip_flags(r))}" for r in rows]
-    embed = discord.Embed(title=f'{member.display_name}’s collection', description='\n'.join(lines) or 'No cards on this page.')
-    embed.set_footer(text=f'{total} cards · Page {page}/{max(1, (total+19)//20)} · Collections are per server')
-    await interaction.response.send_message(embed=embed, ephemeral=False)
+    await send_collection(interaction, member, page)
 
 
 @bot.tree.command(name='view', description='View a claimed image by its card ID.')
@@ -412,7 +439,7 @@ async def view_card(interaction: discord.Interaction, card_id: int):
         return await interaction.response.send_message('No card with that ID in this server.', ephemeral=False)
     item = item_info(row['country'])
     fh, fv = flip_flags(row)
-    embed = discord.Embed(title=item['name'], description=f"Card #{row['id']} · {variant_label(row['rarity'], fh, fv)} · Owner: <@{row['owner']}>")
+    embed = discord.Embed(title=item['name'], description=f"Card {card_index(row['id'])} · {variant_label(row['rarity'], fh, fv)} · Owner: <@{row['owner']}>")
     attachment = await set_card_embed_image(embed, item, row['rarity'], fh, fv, filename=f'view-{row["id"]}.png')
     if not embed.image.url:
         embed.set_footer(text='Legacy card: no image has been configured for this item.')
@@ -453,7 +480,7 @@ async def trade(interaction: discord.Interaction, member: discord.Member, give_i
     if not a or not b:
         return await interaction.response.send_message('Check the card IDs and their owners using /collection.', ephemeral=False)
     view = TradeView(interaction.guild_id, interaction.user.id, member.id, give_id, want_id)
-    await interaction.response.send_message(f"{member.display_name}: {interaction.user.display_name} offers #{give_id} ({discord.utils.escape_markdown(item_info(a['country'])['name'])}, {variant_label(a['rarity'], *flip_flags(a))}) for your #{want_id} ({discord.utils.escape_markdown(item_info(b['country'])['name'])}, {variant_label(b['rarity'], *flip_flags(b))}). Accept within 2 minutes. Otherwise the offer expires.", view=view)
+    await interaction.response.send_message(f"{member.display_name}: {interaction.user.display_name} offers {card_index(give_id)} ({discord.utils.escape_markdown(item_info(a['country'])['name'])}, {variant_label(a['rarity'], *flip_flags(a))}) for your {card_index(want_id)} ({discord.utils.escape_markdown(item_info(b['country'])['name'])}, {variant_label(b['rarity'], *flip_flags(b))}). Accept within 2 minutes. Otherwise the offer expires.", view=view)
 
 
 @bot.tree.command(name='balance', description='Check your chudlets balance.')
@@ -466,6 +493,7 @@ async def wallet(interaction: discord.Interaction):
 @app_commands.guild_only()
 async def card_list(interaction: discord.Interaction, page: app_commands.Range[int,1,100000] = 1):
     rows = db.execute('SELECT country,rarity,COUNT(*) AS n FROM cards WHERE guild=? AND owner=? GROUP BY country,rarity', (interaction.guild_id,interaction.user.id)).fetchall()
+    locked_variants = {(r['country'], r['rarity']) for r in db.execute('SELECT country,rarity FROM cards WHERE guild=? AND owner=? AND id IN (SELECT card_id FROM sell_locks)', (interaction.guild_id, interaction.user.id))}
     owned = {}
     for row in rows:
         owned.setdefault(row['country'], {})[row['rarity']] = row['n']
@@ -479,7 +507,7 @@ async def card_list(interaction: discord.Interaction, page: app_commands.Range[i
     top=[]
     for i in yes[offset:offset+3]:
         counts=owned[i]
-        variants=', '.join(f'{r}: {counts.get(r,0)}' for r in eco.RARITIES)
+        variants=', '.join(f"{r}: {counts.get(r,0)}" + (' 🔒' if (i,r) in locked_variants else '') for r in eco.RARITIES)
         top.append(f"**{discord.utils.escape_markdown(item_info(i)['name'])}** ({sum(counts.values())})\n{variants}")
     bottom=[discord.utils.escape_markdown(item_info(i)['name']) for i in no[offset:offset+3]]
     embed=discord.Embed(title='Card list')
@@ -522,7 +550,7 @@ async def sell_card(interaction:discord.Interaction,card_id:int):
     item=item_info(row['country'])
     price=sale_price(item,row['rarity'])
     bonus=eco.sale_bonus(db,interaction.guild_id,interaction.user.id)
-    await interaction.response.send_message(f"Sell #{card_id}, {discord.utils.escape_markdown(item['name'])} ({variant_label(row['rarity'], *flip_flags(row))}), for {price+bonus:,} chudlets (including {bonus:,} Mass Credit bonus)? This removes that copy from your collection. Confirm within 60 seconds.",view=SellView(interaction.guild_id,interaction.user.id,card_id,price),ephemeral=False)
+    await interaction.response.send_message(f"Sell {card_index(card_id)}, {discord.utils.escape_markdown(item['name'])} ({variant_label(row['rarity'], *flip_flags(row))}), for {price+bonus:,} chudlets (including {bonus:,} Mass Credit bonus)? This removes that copy from your collection. Confirm within 60 seconds.",view=SellView(interaction.guild_id,interaction.user.id,card_id,price),ephemeral=False)
 
 
 class ShopSelect(discord.ui.Select):
@@ -777,7 +805,7 @@ async def profile(interaction:discord.Interaction,user:discord.Member=None):
     order=list(eco.RARITIES)
     # RARITIES is ordered from most common to least common.
     rarest=max(rows,key=lambda row:order.index(row['rarity']) if row['rarity'] in order else -1) if rows else None
-    description=(f"{item_info(rarest['country'])['name']} ({variant_label(rarest['rarity'], *flip_flags(rarest))}), Card #{rarest['id']}" if rarest else 'None')
+    description=(f"{item_info(rarest['country'])['name']} ({variant_label(rarest['rarity'], *flip_flags(rarest))}), Card {card_index(rarest['id'])}" if rarest else 'None')
     embed=discord.Embed(title=f'{member.display_name} | Profile')
     embed.add_field(name='Mass Credit',value=f'{mc:,}',inline=True)
     embed.add_field(name='Chudlets',value=f'{money:,}',inline=True)
@@ -1110,7 +1138,7 @@ async def cardshop(interaction:discord.Interaction):
 
 
 def matched_card_ids(guild, owner, card, rarity=None, sell_last=True, respect_locks=False):
-    rows=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? ORDER BY id',(guild,owner)).fetchall()
+    rows=db.execute('SELECT * FROM cards WHERE guild=? AND owner=? ORDER BY id',(guild,owner)).fetchall()
     chosen=[r for r in rows if (not card or card.casefold() in item_info(r['country'])['name'].casefold() or card.casefold()==r['country'].casefold()) and (not rarity or rarity==r['rarity'])]
     if not sell_last:
         counts={}
@@ -1137,17 +1165,17 @@ def matched_card_ids(guild, owner, card, rarity=None, sell_last=True, respect_lo
 async def collectionsearch(interaction:discord.Interaction,card:str='',rarity:str=None,page:app_commands.Range[int,1,100000]=1):
     rows=matched_card_ids(interaction.guild_id,interaction.user.id,card,rarity)
     portion=rows[(page-1)*20:page*20]
-    text='\n'.join(f"#{r['id']} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {variant_label(r['rarity'], *flip_flags(r))}" for r in portion) or 'No matching cards.'
+    text='\n'.join(f"{card_index(r['id'])} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {variant_label(r['rarity'], *flip_flags(r))}" for r in portion) or 'No matching cards.'
     await interaction.response.send_message(embed=discord.Embed(title=f'Collection search ({len(rows)} found) · Page {page}',description=text))
 
 @bot.tree.command(name='cardsearch',description='Find cards of a type and the players who own them.')
 @app_commands.guild_only()
 @app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
 async def cardsearch(interaction:discord.Interaction,card:str='',rarity:str=None,page:app_commands.Range[int,1,100000]=1):
-    rows=db.execute('SELECT id,country,rarity,owner FROM cards WHERE guild=? ORDER BY id',(interaction.guild_id,)).fetchall()
+    rows=db.execute('SELECT * FROM cards WHERE guild=? ORDER BY id',(interaction.guild_id,)).fetchall()
     chosen=[r for r in rows if (not card or card.casefold() in item_info(r['country'])['name'].casefold() or card.casefold()==r['country'].casefold()) and (not rarity or rarity==r['rarity'])]
     portion=chosen[(page-1)*15:page*15]
-    text='\n'.join(f"#{r['id']} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} ({variant_label(r['rarity'], *flip_flags(r))}) · <@{r['owner']}>" for r in portion) or 'No matching cards.'
+    text='\n'.join(f"{card_index(r['id'])} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} ({variant_label(r['rarity'], *flip_flags(r))}) · <@{r['owner']}>" for r in portion) or 'No matching cards.'
     await interaction.response.send_message(embed=discord.Embed(title=f'All collections ({len(chosen)} found) · Page {page}',description=text))
 
 @bot.tree.command(name='selllock',description='Toggle protection against /sellall and /sellalltype.')

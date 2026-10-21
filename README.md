@@ -361,3 +361,8 @@ Note: This feature needs outbound access to the image URL. If fetching an image 
 - `horizontal_flip:True` reflects across its vertical Y-axis (left becomes right).
 - Setting both rotates the image 180 degrees.
 - If the remote host blocks image downloads or sends a bad image, the bot displays an image-unavailable warning instead of pretending an unchanged picture has been flipped. The card keeps its flip flags; `/view` retries the image.
+
+
+/collectionlocked [member] [page] shows only locked cards.
+/collectionunlocked [member] [page] shows only unlocked cards.
+Locked copies display 🔒 beside their IDs in collections and searches; /list marks variants containing locked copies.
