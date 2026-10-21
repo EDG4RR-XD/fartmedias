@@ -52,6 +52,17 @@ def migrate(db):
     CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY, value TEXT);
     CREATE TABLE IF NOT EXISTS item_extras(id TEXT PRIMARY KEY, definition TEXT);
     CREATE TABLE IF NOT EXISTS recycled_ids(id INTEGER PRIMARY KEY, sold_at REAL NOT NULL);
+    CREATE TABLE IF NOT EXISTS profile_customizations(guild INTEGER, owner INTEGER, accentcolour INTEGER, footerimage TEXT, favoritecard INTEGER, setcompletion INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(guild,owner));
+    CREATE TABLE IF NOT EXISTS card_favorites(guild INTEGER, owner INTEGER, card_id INTEGER, PRIMARY KEY(guild,owner,card_id));
+    CREATE TRIGGER IF NOT EXISTS clear_card_cosmetics_delete AFTER DELETE ON cards BEGIN
+        DELETE FROM card_favorites WHERE card_id=OLD.id;
+        UPDATE profile_customizations SET favoritecard=NULL WHERE favoritecard=OLD.id;
+    END;
+    CREATE TRIGGER IF NOT EXISTS clear_card_cosmetics_transfer AFTER UPDATE OF owner, guild ON cards
+    WHEN OLD.owner != NEW.owner OR OLD.guild != NEW.guild BEGIN
+        DELETE FROM card_favorites WHERE card_id=OLD.id;
+        UPDATE profile_customizations SET favoritecard=NULL WHERE favoritecard=OLD.id;
+    END;
     CREATE TABLE IF NOT EXISTS sell_locks(guild INTEGER, owner INTEGER, card_id INTEGER PRIMARY KEY);
     CREATE TABLE IF NOT EXISTS auction_listings(card_id INTEGER PRIMARY KEY, guild INTEGER NOT NULL, seller INTEGER NOT NULL, item TEXT NOT NULL, rarity TEXT NOT NULL, flip_horizontal INTEGER NOT NULL DEFAULT 0, flip_vertical INTEGER NOT NULL DEFAULT 0, price INTEGER NOT NULL, created_at REAL NOT NULL);
     ''')
@@ -178,6 +189,8 @@ def sell(db,guild,owner,card_id,price):
         return False
     recycle_ids(db,[card_id])
     db.execute('DELETE FROM sell_locks WHERE card_id=?',(card_id,))
+    db.execute('DELETE FROM card_favorites WHERE card_id=?',(card_id,))
+    db.execute('UPDATE profile_customizations SET favoritecard=NULL WHERE favoritecard=?',(card_id,))
     credit(db,guild,owner,price+sale_bonus(db,guild,owner))
     return True
 

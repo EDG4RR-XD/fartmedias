@@ -1,4 +1,5 @@
 import io
+import re
 import tempfile
 import zipfile
 import asyncio
@@ -132,7 +133,9 @@ def variant_label(rarity, flip_horizontal=False, flip_vertical=False):
         parts.append('Horizontal Flip')
     if flip_vertical:
         parts.append('Vertical Flip')
-    return ' + '.join(parts)
+    order = list(eco.RARITIES)
+    sparkles = flip_horizontal or flip_vertical or (rarity in order and order.index(rarity) >= order.index('holographic'))
+    return ' + '.join(parts) + (' ✨' if sparkles else '')
 
 
 def variant_suffix(flip_horizontal=False, flip_vertical=False):
@@ -393,7 +396,8 @@ async def force_spawn(interaction: discord.Interaction):
 
 def card_index(card_id):
     locked = db.execute('SELECT 1 FROM sell_locks WHERE card_id=?', (card_id,)).fetchone()
-    return f"#{card_id}" + (' 🔒' if locked else '')
+    favorite = db.execute('SELECT 1 FROM card_favorites f JOIN cards c ON c.id=f.card_id AND c.guild=f.guild AND c.owner=f.owner WHERE c.id=?', (card_id,)).fetchone()
+    return f"#{card_id}" + (' 🔒' if locked else '') + (' ❤️' if favorite else '')
 
 
 async def send_collection(interaction, member, page, locked=None):
@@ -494,6 +498,8 @@ async def wallet(interaction: discord.Interaction):
 async def card_list(interaction: discord.Interaction, page: app_commands.Range[int,1,100000] = 1):
     rows = db.execute('SELECT country,rarity,COUNT(*) AS n FROM cards WHERE guild=? AND owner=? GROUP BY country,rarity', (interaction.guild_id,interaction.user.id)).fetchall()
     locked_variants = {(r['country'], r['rarity']) for r in db.execute('SELECT country,rarity FROM cards WHERE guild=? AND owner=? AND id IN (SELECT card_id FROM sell_locks)', (interaction.guild_id, interaction.user.id))}
+    favorite_variants = {(r['country'], r['rarity']) for r in db.execute('SELECT country,rarity FROM cards WHERE guild=? AND owner=? AND id IN (SELECT card_id FROM card_favorites WHERE guild=? AND owner=?)', (interaction.guild_id, interaction.user.id, interaction.guild_id, interaction.user.id))}
+    flipped_variants = {(r['country'], r['rarity']) for r in db.execute('SELECT country,rarity FROM cards WHERE guild=? AND owner=? AND (flip_horizontal=1 OR flip_vertical=1)', (interaction.guild_id, interaction.user.id))}
     owned = {}
     for row in rows:
         owned.setdefault(row['country'], {})[row['rarity']] = row['n']
@@ -507,7 +513,7 @@ async def card_list(interaction: discord.Interaction, page: app_commands.Range[i
     top=[]
     for i in yes[offset:offset+3]:
         counts=owned[i]
-        variants=', '.join(f"{r}: {counts.get(r,0)}" + (' 🔒' if (i,r) in locked_variants else '') for r in eco.RARITIES)
+        variants=', '.join(f"{r.title() + (' ✨' if (i,r) in flipped_variants or list(eco.RARITIES).index(r) >= list(eco.RARITIES).index('holographic') else '')}: {counts.get(r,0)}" + (' 🔒' if (i,r) in locked_variants else '') + (' ❤️' if (i,r) in favorite_variants else '') for r in eco.RARITIES)
         top.append(f"**{discord.utils.escape_markdown(item_info(i)['name'])}** ({sum(counts.values())})\n{variants}")
     bottom=[discord.utils.escape_markdown(item_info(i)['name']) for i in no[offset:offset+3]]
     embed=discord.Embed(title='Card list')
@@ -795,21 +801,82 @@ async def mctake(interaction:discord.Interaction,member:discord.Member,amount:ap
         delta,current=eco.adjust_mass_credit(db,interaction.guild_id,member.id,-amount)
     await interaction.response.send_message(f'Took {-delta:,} Mass Credit from {member.mention}. Total: {current:,}. Sale bonus: +{current//10:,} chudlets per card.')
 
+@bot.tree.command(name='profilecustomize', description='Customize your profile. Omitted options keep their current values.')
+@app_commands.guild_only()
+@app_commands.describe(accentcolour='Hex colour, e.g. #64D545; use reset to clear.', footerimage='HTTP(S) image URL; use reset to clear.', favoritecard='Owned card ID; use 0 to clear.', setcompletion='Display currently completed card sets.')
+async def profilecustomize(interaction: discord.Interaction, accentcolour: str = None, footerimage: str = None, favoritecard: int = None, setcompletion: bool = None):
+    updates = {}
+    if accentcolour is not None:
+        colour = accentcolour.strip().lstrip('#')
+        if accentcolour.lower() == 'reset':
+            updates['accentcolour'] = None
+        elif re.fullmatch(r'[0-9a-fA-F]{6}', colour):
+            updates['accentcolour'] = int(colour, 16)
+        else:
+            return await interaction.response.send_message('Use a six-digit hex colour, such as #64D545.')
+    if footerimage is not None:
+        if footerimage.lower() == 'reset':
+            updates['footerimage'] = None
+        else:
+            parsed = urlparse(footerimage)
+            if parsed.scheme not in ('http', 'https') or not parsed.netloc or len(footerimage) > 2048:
+                return await interaction.response.send_message('Use an HTTP or HTTPS image URL.')
+            updates['footerimage'] = footerimage
+    if favoritecard is not None:
+        if favoritecard != 0 and not db.execute('SELECT 1 FROM cards WHERE id=? AND guild=? AND owner=?', (favoritecard, interaction.guild_id, interaction.user.id)).fetchone():
+            return await interaction.response.send_message('Choose a card you own in this server, or 0 to clear it.')
+        updates['favoritecard'] = favoritecard or None
+    if setcompletion is not None:
+        updates['setcompletion'] = int(setcompletion)
+    if not updates:
+        return await interaction.response.send_message('Choose any profile option to update. Use reset for the colour or image, or favoritecard:0 to clear the featured card.')
+    with db:
+        db.execute('INSERT OR IGNORE INTO profile_customizations(guild,owner) VALUES(?,?)', (interaction.guild_id, interaction.user.id))
+        fields = ', '.join(key + '=?' for key in updates)
+        db.execute('UPDATE profile_customizations SET ' + fields + ' WHERE guild=? AND owner=?', (*updates.values(), interaction.guild_id, interaction.user.id))
+    await interaction.response.send_message('Profile updated. View it with /profile.')
+
+
+@bot.tree.command(name='favorite', description='Toggle a heart beside one of your cards in listings.')
+@app_commands.guild_only()
+async def favorite(interaction: discord.Interaction, card_id: int):
+    if not db.execute('SELECT 1 FROM cards WHERE id=? AND guild=? AND owner=?', (card_id, interaction.guild_id, interaction.user.id)).fetchone():
+        return await interaction.response.send_message('Choose a card you own in this server.')
+    args = (interaction.guild_id, interaction.user.id, card_id)
+    with db:
+        removed = db.execute('DELETE FROM card_favorites WHERE guild=? AND owner=? AND card_id=?', args).rowcount
+        if not removed:
+            db.execute('INSERT INTO card_favorites VALUES(?,?,?)', args)
+    await interaction.response.send_message(f"{'Removed favorite from' if removed else 'Favorited'} card {card_index(card_id)}.")
+
+
 @bot.tree.command(name='profile',description='View Chudlets, Mass Credit and rarest owned card.')
 @app_commands.guild_only()
 async def profile(interaction:discord.Interaction,user:discord.Member=None):
     member=user or interaction.user
     mc=eco.mass_credit(db,interaction.guild_id,member.id)
     money=eco.balance(db,interaction.guild_id,member.id)
-    rows=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=?',(interaction.guild_id,member.id)).fetchall()
+    rows=db.execute('SELECT * FROM cards WHERE guild=? AND owner=?',(interaction.guild_id,member.id)).fetchall()
     order=list(eco.RARITIES)
     # RARITIES is ordered from most common to least common.
     rarest=max(rows,key=lambda row:order.index(row['rarity']) if row['rarity'] in order else -1) if rows else None
     description=(f"{item_info(rarest['country'])['name']} ({variant_label(rarest['rarity'], *flip_flags(rarest))}), Card {card_index(rarest['id'])}" if rarest else 'None')
-    embed=discord.Embed(title=f'{member.display_name} | Profile')
+    custom = db.execute('SELECT * FROM profile_customizations WHERE guild=? AND owner=?', (interaction.guild_id, member.id)).fetchone()
+    embed=discord.Embed(title=f'{member.display_name} | Profile', colour=custom['accentcolour'] if custom and custom['accentcolour'] is not None else None)
     embed.add_field(name='Mass Credit',value=f'{mc:,}',inline=True)
     embed.add_field(name='Chudlets',value=f'{money:,}',inline=True)
     embed.add_field(name='Rarest card',value=discord.utils.escape_markdown(description),inline=False)
+    if custom and custom['favoritecard']:
+        favorite = db.execute('SELECT * FROM cards WHERE id=? AND guild=? AND owner=?', (custom['favoritecard'], interaction.guild_id, member.id)).fetchone()
+        if favorite:
+            embed.add_field(name='Favorite card', value=f"{card_index(favorite['id'])} · {discord.utils.escape_markdown(item_info(favorite['country'])['name'])} · {variant_label(favorite['rarity'], *flip_flags(favorite))}", inline=False)
+    if custom and custom['setcompletion']:
+        owned = {r['country'] for r in rows}
+        completed = [d['name'] for d in eco.SET_DEFINITIONS.values() if d['members'] and d['members'] <= owned]
+        text = '\n'.join(completed) or 'None yet.'
+        embed.add_field(name=f'Sets completed ({len(completed)}/{len(eco.SET_DEFINITIONS)})', value=text[:1024], inline=False)
+    if custom and custom['footerimage']:
+        embed.set_image(url=custom['footerimage'])
     embed.set_footer(text=f'Mass Credit sale bonus: +{mc//10:,} chudlets per card sold.')
     await interaction.response.send_message(embed=embed)
 

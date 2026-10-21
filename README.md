@@ -366,3 +366,8 @@ Note: This feature needs outbound access to the image URL. If fetching an image 
 /collectionlocked [member] [page] shows only locked cards.
 /collectionunlocked [member] [page] shows only unlocked cards.
 Locked copies display 🔒 beside their IDs in collections and searches; /list marks variants containing locked copies.
+
+/profilecustomize [accentcolour] [footerimage] [favoritecard] [setcompletion]
+All fields are optional and scoped to this server. Hex colours use six digits. Use reset for colour/image, and favoritecard:0 to clear the featured card. Footer images use Discord's full-width profile embed image. Set completion displays currently held card sets.
+/favorite card_id toggles a cosmetic heart. This does not lock the card or change its value. Favourites and featured-card selections clear when a copy is sold or transferred.
+✨ marks Holographic, Inverted, Glitch and any flipped card in spawns and listings.
