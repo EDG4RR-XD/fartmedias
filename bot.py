@@ -209,12 +209,9 @@ def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False, mo
             if key in modifiers:
                 with Image.open(io.BytesIO(overlay_data[key])) as overlay:
                     overlay = overlay.convert('RGBA')
-                    # Fit overlay onto a canvas large enough for both original sizes.
-                    width, height = max(image.width, overlay.width), max(image.height, overlay.height)
-                    canvas = Image.new('RGBA', (width, height))
-                    canvas.alpha_composite(image, ((width-image.width)//2, (height-image.height)//2))
-                    canvas.alpha_composite(overlay, ((width-overlay.width)//2, (height-overlay.height)//2))
-                    image = canvas
+                    # Fit the overlay to the card without resizing the card or its canvas.
+                    overlay = overlay.resize(image.size, Image.Resampling.LANCZOS)
+                    image = Image.alpha_composite(image, overlay)
         output = io.BytesIO()
         image.save(output, format='PNG')
         output.seek(0)
