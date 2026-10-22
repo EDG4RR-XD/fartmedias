@@ -534,6 +534,88 @@
     }
   },
 
+{
+    "id": "Deli7",
+    "name": "Green Delicious Variant 7",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1137_20261022010923.png",
+    "weight": 10,
+ "sets": [
+      "Deli"
+    ],
+
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1137_20261022010923.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011118.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011122.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011125.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011129.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011132.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011135.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011138.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011142.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011055.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/dv71",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1137_20261022010933.png"
+    }
+  },
+
+
+{
+    "id": "Deli8",
+    "name": "Green Delicious Variant 8",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011721.png",
+    "weight": 10,
+ "sets": [
+      "Deli"
+    ],
+
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011721.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011747.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011750.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011753.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011756.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011759.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011803.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011806.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011809.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011740.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/dv81",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022011731.png"
+    }
+  },
+
+
 
 
   {
