@@ -13,5 +13,11 @@
     "name": "FESTIVE",
     "TALL": "",
     "WIDE": ""
+  },
+  "cloudy": {
+    "name": "CLOUDY",
+    "image": "cloudy.png",
+    "blend": "screen",
+    "chance": 0.02
   }
 }

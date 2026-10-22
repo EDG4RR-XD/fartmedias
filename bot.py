@@ -49,6 +49,7 @@ ROOT = Path(__file__).resolve().parent
 ADMIN_RARITIES = {'normal', 'holographic', 'glitch', 'inverted'}
 with (ROOT / 'modifiers.json').open(encoding='utf-8') as f:
     MODIFIERS = json.load(f)
+CLOUDY_CHANCE = 0.02
 SEASONAL_WINDOWS = {'spooky': (10, 21, 31), 'hungry': (11, 16, 26), 'festive': (12, 15, 25)}
 MODIFIER_TIMEZONE = ZoneInfo(os.getenv('MODIFIER_TIMEZONE', 'America/New_York'))
 for key in SEASONAL_WINDOWS:
@@ -186,6 +187,10 @@ def roll_seasonal_modifiers(item, today=None):
             and seasonal_image(item, key) and random.random() < 0.10]
 
 
+def roll_cloudy_modifier(rarity):
+    return rarity in ADMIN_RARITIES and random.random() < CLOUDY_CHANCE
+
+
 def roll_flip_modifiers():
     return random.random() < eco.HORIZONTAL_FLIP_CHANCE, random.random() < eco.VERTICAL_FLIP_CHANCE
 
@@ -205,6 +210,15 @@ def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False, mo
             image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
         if flip_vertical:
             image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)  # Reflect across X-axis
+        if 'cloudy' in modifiers:
+            with Image.open(ROOT / MODIFIERS['cloudy']['image']) as cloudy:
+                cloudy = cloudy.convert('RGBA')
+                # Cover the full canvas while preserving the overlay's proportions.
+                cloudy = ImageOps.fit(cloudy, image.size, method=Image.Resampling.LANCZOS)
+                base = image.convert('RGBA')
+                screened = ImageChops.screen(base.convert('RGB'), cloudy.convert('RGB')).convert('RGBA')
+                screened.putalpha(base.getchannel('A'))
+                image = Image.composite(screened, base, cloudy.getchannel('A'))
         for key in ('spooky', 'hungry', 'festive'):
             if key in modifiers:
                 with Image.open(io.BytesIO(overlay_data[key])) as overlay:
@@ -231,9 +245,13 @@ async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=
                 response.raise_for_status()
                 payload = await response.read()
         overlays = {}
+        with Image.open(io.BytesIO(payload)) as original:
+            actual_width, actual_height = ImageOps.exif_transpose(original).size
+        actual_orientation = 'WIDE' if actual_width > actual_height else 'TALL'
         for key in SEASONAL_WINDOWS:
             if key in modifiers:
-                source = seasonal_image(item, key)
+                # Image dimensions take priority over potentially stale items.json labels.
+                source = MODIFIERS[key].get(actual_orientation, '')
                 if not source:
                     raise ValueError(f'Missing {key} image or TALL/WIDE orientation for this card.')
                 if source.startswith('https://'):
@@ -385,19 +403,24 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizo
             if rig['card']:
                 chosen_item=next((item for item in ITEMS if item['id']==rig['card']),None)
     modifiers = list(modifiers or [])
-    if 'admin' in modifiers and chosen_rarity and chosen_rarity not in ADMIN_RARITIES:
+    if {'admin', 'cloudy'} & set(modifiers) and chosen_rarity and chosen_rarity not in ADMIN_RARITIES:
         raise ValueError('ADMIN requires normal, holographic, glitch or inverted.')
     pool=bounty_spawn_pool(guild_id,chosen_item,chosen_rarity)
     if rigged_session and rig and rig['set_id']:
         if rig['set_id']:
             allowed=eco.SET_DEFINITIONS[rig['set_id']]['members']
             pool=[pair for pair in pool if pair[0]['id'] in allowed]
-    if 'admin' in modifiers:
+    if {'admin', 'cloudy'} & set(modifiers):
         pool = [pair for pair in pool if pair[1] in ADMIN_RARITIES]
+    forced_seasonal = set(modifiers) & set(SEASONAL_WINDOWS)
+    if forced_seasonal:
+        pool = [pair for pair in pool if all(seasonal_image(pair[0], key) for key in forced_seasonal)]
     if not pool:
         raise ValueError('No positive spawn weights configured')
     item,rarity,_=random.choices(pool,weights=[pair[2] for pair in pool])[0]
     modifiers = list(dict.fromkeys(modifiers + roll_seasonal_modifiers(item)))
+    if 'cloudy' not in modifiers and roll_cloudy_modifier(rarity):
+        modifiers.append('cloudy')
     rolled_horizontal, rolled_vertical = roll_flip_modifiers()
     flip_horizontal = rolled_horizontal if horizontal_flip is None else horizontal_flip
     flip_vertical = rolled_vertical if vertical_flip is None else vertical_flip
@@ -792,10 +815,12 @@ async def ctake(interaction:discord.Interaction,member:discord.Member,amount:app
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
-async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal',horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False):
-    if admin and rarity is not None and rarity not in ADMIN_RARITIES:
-        return await interaction.response.send_message('ADMIN only supports normal, holographic, glitch and inverted.', ephemeral=True)
+async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal',horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False,cloudy:bool=False):
+    if (admin or cloudy) and rarity is not None and rarity not in ADMIN_RARITIES:
+        return await interaction.response.send_message('ADMIN only supports normal, holographic, glitch and inverted. CLOUDY uses the same rarities.', ephemeral=True)
     modifiers = ['admin'] if admin else []
+    if cloudy:
+        modifiers.append('cloudy')
     for key, enabled in (('spooky', spooky), ('hungry', hungry), ('festive', festive)):
         if enabled:
             if card not in CATALOG or not seasonal_image(CATALOG[card], key):
@@ -1496,11 +1521,11 @@ async def spawnspam(interaction:discord.Interaction):
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.choices(rarity=[app_commands.Choice(name=r.replace('_',' ').title(),value=r) for r in eco.RARITIES])
-async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:str=None,set:str=None,horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False):
-    if admin and rarity is not None and rarity not in ADMIN_RARITIES:
+async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:str=None,set:str=None,horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,cloudy:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False):
+    if (admin or cloudy) and rarity is not None and rarity not in ADMIN_RARITIES:
         return await interaction.response.send_message('ADMIN only supports normal, holographic, glitch and inverted.', ephemeral=True)
-    modifiers = ['admin'] if admin else []
-
+    modifiers = (['admin'] if admin else []) + (['cloudy'] if cloudy else [])
+    modifiers += [key for key, enabled in (('spooky', spooky), ('hungry', hungry), ('festive', festive)) if enabled]
 
     settings=db.execute('SELECT channel FROM settings WHERE guild=?',(interaction.guild_id,)).fetchone()
     if not settings:
@@ -1514,9 +1539,12 @@ async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:s
     if card is not None and set is not None and card not in eco.SET_DEFINITIONS[set]['members']:
         return await interaction.response.send_message('That card does not belong to the selected set.',ephemeral=True)
     cards=[item for item in ACTIVE_ITEMS if (card is None or item['id']==card) and (set is None or item['id'] in eco.SET_DEFINITIONS[set]['members'])]
-    rarities=[rarity] if rarity else list(ADMIN_RARITIES if admin else eco.RARITIES)
-    if not any(item['weight']*eco.RARITIES[r]>0 for item in cards for r in rarities):
-        return await interaction.response.send_message('No spawnable cards match these filters.',ephemeral=True)
+    rarities=[rarity] if rarity else list(ADMIN_RARITIES if (admin or cloudy) else eco.RARITIES)
+    forced_seasonal = set(modifiers) & set(SEASONAL_WINDOWS)
+    eligible_cards = [item for item in cards if all(seasonal_image(item, key) for key in forced_seasonal)]
+    if not any(item['weight']*eco.RARITIES[r]>0 for item in eligible_cards for r in rarities):
+        reason = 'Set matching TALL/WIDE overlays in modifiers.json and card orientations in items.json.' if forced_seasonal else 'Check the rarity, card, and set filters.'
+        return await interaction.response.send_message(f'No spawnable cards match these filters. {reason}',ephemeral=True)
     with db:
         db.execute('INSERT INTO spam_periods VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET until_time=excluded.until_time',(interaction.guild_id,time.time()+300))
         db.execute('INSERT INTO rigged_spam(guild,rarity,card,set_id,horizontal_flip,vertical_flip) VALUES(?,?,?,?,?,?) ON CONFLICT(guild) DO UPDATE SET rarity=excluded.rarity,card=excluded.card,set_id=excluded.set_id,horizontal_flip=excluded.horizontal_flip,vertical_flip=excluded.vertical_flip',(interaction.guild_id,rarity,card,set,None if horizontal_flip is None else int(horizontal_flip),None if vertical_flip is None else int(vertical_flip)))
