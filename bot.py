@@ -970,7 +970,7 @@ def gift_owned_card(guild,sender,recipient,card_id):
         return None
     db.execute('UPDATE cards SET owner=? WHERE guild=? AND owner=? AND id=?',(recipient,guild,sender,card_id))
     db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)',(guild,recipient,row['country']))
-    reward=eco.set_bonus(db,guild,recipient,row['country'])+eco.card_set_bonus(db,guild,recipient)
+    reward=eco.rarity_unlock_bonus(db,guild,recipient,row['country'],row['rarity'])+eco.set_bonus(db,guild,recipient,row['country'])+eco.card_set_bonus(db,guild,recipient)
     return row['country'],row['rarity'],reward,bool(row['flip_horizontal']) if 'flip_horizontal' in row.keys() else False,bool(row['flip_vertical']) if 'flip_vertical' in row.keys() else False
 
 
@@ -1407,11 +1407,12 @@ class AuctionBuy(discord.ui.View):
                     db.execute('UPDATE cards SET modifiers=? WHERE id=?',(current['modifiers'],current['card_id']))
                     db.execute('DELETE FROM auction_listings WHERE card_id=?',(current['card_id'],))
                     db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)',(interaction.guild_id,interaction.user.id,current['item']))
+                    unlock_reward=eco.rarity_unlock_bonus(db,interaction.guild_id,interaction.user.id,current['item'],current['rarity'])
                     eco.set_bonus(db,interaction.guild_id,interaction.user.id,current['item'])
                     eco.card_set_bonus(db,interaction.guild_id,interaction.user.id)
         if not current: return await interaction.response.send_message('This listing is no longer available.',ephemeral=True)
         if not paid: return await interaction.response.send_message('Insufficient chudlets.',ephemeral=True)
-        self.stop();await interaction.response.edit_message(content=f'Purchased card #{current["card_id"]} for {current["price"]:,} chudlets!',embed=None,view=None)
+        self.stop();await interaction.response.edit_message(content=f'Purchased card #{current["card_id"]} for {current["price"]:,} chudlets!'+(f' +{unlock_reward} chudlets for a new card rarity.' if unlock_reward else ''),embed=None,view=None)
     @discord.ui.button(label='Cancel listing (seller)',style=discord.ButtonStyle.secondary)
     async def cancel(self,interaction,button):
         listing=self.listing

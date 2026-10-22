@@ -34,6 +34,7 @@ The same player cannot successfully claim two cards in a row in the same server.
 Claim rewards:
 
 - First discovery of a base card: 1,000 chudlets.
+- First acquisition of each base-card/rarity combination: 150 chudlets, once per player per server.
 - Each newly reached five-copy milestone for that base card: 1,000 chudlets. Previously rewarded milestones do not pay again.
 - Owning all current base rarities of one card: 5,000 chudlets once per base card.
 - Completing a configured named set: 10,000 chudlets once per set.
@@ -65,6 +66,12 @@ Locked cards display a lock beside their IDs in collection/search indexing. Favo
 `/givecard card_id user` transfers one card to another human player. It checks completion rewards for the recipient and records discovery. It does not give the 100-chudlet trade bonus.
 
 Rarities, flips, ADMIN, and custom overlays stay with the card during transfers. Favourites and featured-profile selections clear when the selected copy changes ownership or is deleted.
+
+## Card rarity unlock rewards
+
+The first time a player acquires a particular base card in a particular base rarity, they earn 150 chudlets. Gold Seadweller and Gold Thistle are separate unlocks. Claims, card-shop purchases, incoming trades, gifts, and auction purchases qualify. The reward is recorded permanently per player per server. Selling, gifting away, or auctioning the last copy does not reset it. Buying or claiming that combination again gives no additional unlock reward. Modifiers, including flips and ADMIN, do not create separate rarity unlocks. Cancelling your own auction listing gives no reward.
+
+Existing owned cards and auction escrow, saved card-purchase history, and recorded completed rarity sets seed the unlock history when this feature is first installed. These known combinations receive no retrospective payout. Old sold or transferred combinations without surviving rarity-specific records cannot be reconstructed from the previous database. Future unlock history survives restarts and is included in database backups.
 
 ## Selling and card ID reuse
 
@@ -101,7 +108,7 @@ Auction prices are set manually; the 1,500-per-modifier NPC sale bonus does not 
 - `/use-item item_id`: redeem a purchased art reward and create a receipt.
 - `/receipt item_id`: display your saved redemption receipt again.
 
-Card-shop copies cost five times the configured base-rarity sell value. They always have no modifiers. Modifier sale bonuses do not raise shop prices. Purchases count toward collection and completion tracking and may award unpaid completion bonuses. They do not grant claim milestones, first-claim rewards, or trade bonuses, and do not clear bounties or alter claim turns.
+Card-shop copies cost five times the configured base-rarity sell value. They always have no modifiers. Modifier sale bonuses do not raise shop prices. Purchases count toward collection and completion tracking and may award unpaid completion bonuses. They can award the 150-chudlet card/rarity unlock bonus. They do not grant claim milestones, first-base-card claim rewards, or trade bonuses, and do not clear bounties or alter claim turns.
 
 Current art rewards:
 
@@ -321,9 +328,9 @@ Use an all-server snapshot when replacing a multi-server database. Replacing it 
 Run focused modifier, price, and flip checks with:
 
 ```bash
-python -m unittest test_modifier_prices test_modifiers test_flips -q
+python -m unittest test_rarity_unlocks test_modifier_prices test_modifiers test_flips -q
 ```
 
-These seven checks passed for the current implementation, including Multiply output, preserved alpha, final flip order, overlays adding pixels, ADMIN rarity restrictions, artist credits, stacked sale bonuses, Mass Credit payouts, and duplicate-sale rejection.
+These eleven checks passed for the current implementation, including Multiply output, preserved alpha, final flip order, overlays adding pixels, ADMIN rarity restrictions, artist credits, stacked sale bonuses, Mass Credit payouts, duplicate-sale rejection, per-card/rarity unlock rewards, purchase retries, transfer rewards, and migration seeding.
 
 The repository also contains older tests. The original uploaded project and the modifier release both reported 10 failures and 15 errors across the pre-existing 59-test discovery suite, including outdated demo names, schema fixtures, and rarity expectations. Those legacy tests are not a clean release gate. Live Discord integration still needs a configured bot and server.

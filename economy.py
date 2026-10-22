@@ -90,6 +90,17 @@ def migrate(db):
                 db.execute(f"ALTER TABLE {table} ADD COLUMN modifiers TEXT NOT NULL DEFAULT '[]'")
     if 'raritycompletion' not in {r[1] for r in db.execute('PRAGMA table_info(profile_customizations)')}:
         db.execute('ALTER TABLE profile_customizations ADD COLUMN raritycompletion INTEGER NOT NULL DEFAULT 0')
+    # Seed known ownership once, without paying for pre-update holdings.
+    db.execute('CREATE TABLE IF NOT EXISTS rarity_discoveries(guild INTEGER NOT NULL, owner INTEGER NOT NULL, item TEXT NOT NULL, rarity TEXT NOT NULL, PRIMARY KEY(guild,owner,item,rarity))')
+    if not db.execute("SELECT 1 FROM metadata WHERE key='rarity_discoveries_initialized'").fetchone():
+        with db:
+            db.execute('INSERT OR IGNORE INTO rarity_discoveries SELECT DISTINCT guild,owner,country,rarity FROM cards')
+            db.execute('INSERT OR IGNORE INTO rarity_discoveries SELECT guild,seller,item,rarity FROM auction_listings')
+            db.execute('INSERT OR IGNORE INTO rarity_discoveries SELECT guild,owner,item,rarity FROM card_purchases')
+            for completed in db.execute('SELECT guild,owner,item FROM completed_sets').fetchall():
+                db.executemany('INSERT OR IGNORE INTO rarity_discoveries VALUES(?,?,?,?)',
+                               [(completed['guild'],completed['owner'],completed['item'],r) for r in RARITIES])
+            db.execute("INSERT INTO metadata VALUES('rarity_discoveries_initialized','1')")
     # Old inventory establishes history, without a surprise retrospective payout.
     if not db.execute("SELECT 1 FROM metadata WHERE key='economy_initialized'").fetchone():
         with db:
@@ -105,6 +116,16 @@ def balance(db, guild, owner):
 
 def credit(db, guild, owner, amount):
     db.execute('INSERT INTO wallets VALUES(?,?,?) ON CONFLICT(guild,owner) DO UPDATE SET amount=amount+excluded.amount', (guild,owner,amount))
+
+
+def rarity_unlock_bonus(db, guild, owner, item, rarity):
+    """Pay once per server/player/base-card/base-rarity; call within acquisition transaction."""
+    if rarity not in RARITIES:
+        return 0
+    if db.execute('INSERT OR IGNORE INTO rarity_discoveries VALUES(?,?,?,?)', (guild,owner,item,rarity)).rowcount:
+        credit(db,guild,owner,150)
+        return 150
+    return 0
 
 
 def set_bonus(db, guild, owner, item):
@@ -167,6 +188,7 @@ def award_claim(db, guild, owner, item, rarity, flip_horizontal=0, flip_vertical
         reward += 1000
         db.execute('INSERT INTO milestones VALUES(?,?,?,?) ON CONFLICT(guild,owner,item) DO UPDATE SET level=excluded.level', (guild,owner,item,level))
     credit(db,guild,owner,reward)
+    reward += rarity_unlock_bonus(db,guild,owner,item,rarity)
     reward += set_bonus(db,guild,owner,item)
     reward += card_set_bonus(db,guild,owner)
     return card_id,reward
@@ -180,11 +202,11 @@ def exchange(db,guild,sender,target,give,want):
     db.execute('UPDATE cards SET owner=? WHERE id=?',(target,give))
     db.execute('UPDATE cards SET owner=? WHERE id=?',(sender,want))
     bonuses=[]
-    for owner,item in ((sender,b['country']),(target,a['country'])):
+    for owner,item,rarity in ((sender,b['country'],b['rarity']),(target,a['country'],a['rarity'])):
         # Trade discoveries prevent later selling/reclaiming as a "new" base card.
         db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)',(guild,owner,item))
         credit(db,guild,owner,100)
-        bonuses.append(100+set_bonus(db,guild,owner,item)+card_set_bonus(db,guild,owner))
+        bonuses.append(100+rarity_unlock_bonus(db,guild,owner,item,rarity)+set_bonus(db,guild,owner,item)+card_set_bonus(db,guild,owner))
     return bonuses
 
 
@@ -305,7 +327,7 @@ def buy_card(db,guild,owner,item,rarity,price,request,flip_horizontal=0,flip_ver
         return None
     card_id=allocate_card_id(db,guild,owner,item,rarity,flip_horizontal,flip_vertical)
     db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)',(guild,owner,item))
-    earned=set_bonus(db,guild,owner,item)+card_set_bonus(db,guild,owner)
+    earned=rarity_unlock_bonus(db,guild,owner,item,rarity)+set_bonus(db,guild,owner,item)+card_set_bonus(db,guild,owner)
     db.execute('INSERT INTO card_purchases VALUES(?,?,?,?,?,?,?,?,?,?,?)',(str(request),guild,owner,card_id,item,rarity,int(bool(flip_horizontal)),int(bool(flip_vertical)),price,earned,time.time()))
     return card_id,earned,int(bool(flip_horizontal)),int(bool(flip_vertical))
 
