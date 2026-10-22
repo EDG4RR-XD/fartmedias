@@ -232,6 +232,33 @@ def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False, mo
         return output
 
 
+async def download_modifier_image(session, source, label):
+    """Fetch and verify an image. Retries cover transient image-host failures."""
+    if not source.startswith(('https://', 'http://')):
+        payload = await asyncio.to_thread((ROOT / source).read_bytes)
+    else:
+        last_error = None
+        for attempt in range(3):
+            try:
+                async with session.get(source, headers={'User-Agent': 'Mozilla/5.0 (compatible; CardImageBot/1.0)'}) as response:
+                    response.raise_for_status()
+                    payload = await response.read()
+                break
+            except (aiohttp.ClientError, asyncio.TimeoutError) as error:
+                last_error = error
+                logging.warning('Image download attempt %s/3 failed for %s: %r', attempt + 1, label, error)
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+        else:
+            raise RuntimeError(f'{label} image could not be downloaded: {last_error}') from last_error
+    try:
+        with Image.open(io.BytesIO(payload)) as check:
+            check.verify()
+    except Exception as error:
+        raise ValueError(f'{label} returned invalid image data') from error
+    return payload
+
+
 async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=False, filename='card.png', modifiers=()):
     image = image_for(item, rarity)
     if not image:
@@ -239,33 +266,24 @@ async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=
     if not (flip_horizontal or flip_vertical or modifiers):
         return image, None
     try:
-        timeout = aiohttp.ClientTimeout(total=20)
+        timeout = aiohttp.ClientTimeout(total=35, connect=10)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(image) as response:
-                response.raise_for_status()
-                payload = await response.read()
-        overlays = {}
-        with Image.open(io.BytesIO(payload)) as original:
-            actual_width, actual_height = ImageOps.exif_transpose(original).size
-        actual_orientation = 'WIDE' if actual_width > actual_height else 'TALL'
-        for key in SEASONAL_WINDOWS:
-            if key in modifiers:
-                # Image dimensions take priority over potentially stale items.json labels.
-                source = MODIFIERS[key].get(actual_orientation, '')
-                if not source:
-                    raise ValueError(f'Missing {key} image or TALL/WIDE orientation for this card.')
-                if source.startswith('https://'):
-                    async with aiohttp.ClientSession(timeout=timeout) as session:
-                        async with session.get(source) as response:
-                            response.raise_for_status()
-                            overlays[key] = await response.read()
-                else:
-                    overlays[key] = await asyncio.to_thread((ROOT / source).read_bytes)
+            payload = await download_modifier_image(session, image, f'{item.get("id", "card")} ({rarity})')
+            with Image.open(io.BytesIO(payload)) as original:
+                actual_width, actual_height = ImageOps.exif_transpose(original).size
+            actual_orientation = 'WIDE' if actual_width > actual_height else 'TALL'
+            overlays = {}
+            for key in SEASONAL_WINDOWS:
+                if key in modifiers:
+                    source = MODIFIERS[key].get(actual_orientation, '')
+                    if not source:
+                        raise ValueError(f'{key} has no {actual_orientation} overlay in modifiers.json')
+                    overlays[key] = await download_modifier_image(session, source, f'{key} {actual_orientation}')
         transformed = await asyncio.to_thread(transformed_image_bytes, payload, flip_horizontal, flip_vertical, modifiers, overlays)
         return f'attachment://{filename}', discord.File(transformed, filename=filename)
     except Exception:
-        # A non-flipped fallback must never masquerade as a flipped collectible.
-        logging.exception('Image transform failed for %s (horizontal=%s, vertical=%s)', image, flip_horizontal, flip_vertical)
+        logging.exception('Image transform failed for card=%s rarity=%s modifiers=%s horizontal=%s vertical=%s base_url=%s',
+                          item.get('id'), rarity, modifiers, flip_horizontal, flip_vertical, image)
         return None, None
 
 
