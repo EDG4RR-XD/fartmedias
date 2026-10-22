@@ -53,6 +53,8 @@ def migrate(db):
     CREATE TABLE IF NOT EXISTS item_extras(id TEXT PRIMARY KEY, definition TEXT);
     CREATE TABLE IF NOT EXISTS recycled_ids(id INTEGER PRIMARY KEY, sold_at REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS profile_customizations(guild INTEGER, owner INTEGER, accentcolour INTEGER, footerimage TEXT, favoritecard INTEGER, setcompletion INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(guild,owner));
+    CREATE TABLE IF NOT EXISTS manual_collection_orders(guild INTEGER, owner INTEGER, ids TEXT NOT NULL, PRIMARY KEY(guild,owner));
+    CREATE TABLE IF NOT EXISTS collection_sorts(guild INTEGER, owner INTEGER, mode TEXT NOT NULL, PRIMARY KEY(guild,owner));
     CREATE TABLE IF NOT EXISTS card_favorites(guild INTEGER, owner INTEGER, card_id INTEGER, PRIMARY KEY(guild,owner,card_id));
     CREATE TRIGGER IF NOT EXISTS clear_card_cosmetics_delete AFTER DELETE ON cards BEGIN
         DELETE FROM card_favorites WHERE card_id=OLD.id;

@@ -50,6 +50,8 @@ ADMIN_RARITIES = {'normal', 'holographic', 'glitch', 'inverted'}
 with (ROOT / 'modifiers.json').open(encoding='utf-8') as f:
     MODIFIERS = json.load(f)
 CLOUDY_CHANCE = 0.02
+BOUNCY_CHANCE = 0.02
+HYPER_CHANCE = 0.02
 SEASONAL_WINDOWS = {'spooky': (10, 21, 31), 'hungry': (11, 16, 26), 'festive': (12, 15, 25)}
 MODIFIER_TIMEZONE = ZoneInfo(os.getenv('MODIFIER_TIMEZONE', 'America/New_York'))
 for key in SEASONAL_WINDOWS:
@@ -231,7 +233,29 @@ def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False, mo
                     overlay = overlay.resize(image.size, Image.Resampling.LANCZOS)
                     image = Image.alpha_composite(image, overlay)
         output = io.BytesIO()
-        image.save(output, format='PNG')
+        if {'bouncy', 'hyper'} & set(modifiers):
+            # Keep the complete rendered card at its native resolution.
+            image = image.convert('RGBA')
+            spinning = 'hyper' in modifiers
+            travel = max(2, round(image.height * 0.08)) if 'bouncy' in modifiers else 0
+            side = math.ceil(math.hypot(image.width, image.height)) if spinning else None
+            width, height = (side, side) if spinning else image.size
+            frames = []
+            # One rotation every two seconds; bounce keeps its one-second period.
+            steps = 40 if spinning else 20
+            for step in range(steps):
+                y = round(travel * (1 + math.cos(2 * math.pi * step / 20)) / 2)
+                rendered = image.rotate(-360 * step / steps, resample=Image.Resampling.BICUBIC, expand=True) if spinning else image
+                canvas = Image.new('RGBA', (width, height + travel))
+                canvas.paste(rendered, ((width - rendered.width) // 2, (height - rendered.height) // 2 + y))
+                frame = canvas.convert('RGB').quantize(colors=255)
+                frame.putpalette((frame.getpalette() + [0] * 768)[:765] + [0, 0, 0])
+                frame.paste(255, mask=canvas.getchannel('A').point(lambda a: 255 if a < 128 else 0))
+                frames.append(frame)
+            frames[0].save(output, format='GIF', save_all=True, append_images=frames[1:],
+                           duration=50, loop=0, disposal=2, transparency=255, optimize=False)
+        else:
+            image.save(output, format='PNG')
         output.seek(0)
         return output
 
@@ -284,6 +308,8 @@ async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=
                         raise ValueError(f'{key} has no {actual_orientation} overlay in modifiers.json')
                     overlays[key] = await download_modifier_image(session, source, f'{key} {actual_orientation}')
         transformed = await asyncio.to_thread(transformed_image_bytes, payload, flip_horizontal, flip_vertical, modifiers, overlays)
+        if {'bouncy', 'hyper'} & set(modifiers):
+            filename = str(Path(filename).with_suffix('.gif'))
         return f'attachment://{filename}', discord.File(transformed, filename=filename)
     except Exception as error:
         if error_details is not None:
@@ -447,6 +473,10 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizo
     modifiers = list(dict.fromkeys(modifiers + roll_seasonal_modifiers(item)))
     if 'cloudy' not in modifiers and roll_cloudy_modifier(rarity):
         modifiers.append('cloudy')
+    if 'bouncy' not in modifiers and random.random() < BOUNCY_CHANCE:
+        modifiers.append('bouncy')
+    if 'hyper' not in modifiers and random.random() < HYPER_CHANCE:
+        modifiers.append('hyper')
     rolled_horizontal, rolled_vertical = roll_flip_modifiers()
     flip_horizontal = rolled_horizontal if horizontal_flip is None else horizontal_flip
     flip_vertical = rolled_vertical if vertical_flip is None else vertical_flip
@@ -538,6 +568,135 @@ def card_index(card_id):
     return f"#{card_id}" + (' 🔒' if locked else '') + (' ❤️' if favorite else '')
 
 
+# Autocomplete supports the full list; Discord static choices are limited to 25.
+SORT_FIELDS = {
+    'id': 'Card ID', 'name': 'Card name', 'rarity': 'Rarity',
+    'value': 'Sale value', 'artist': 'Artist', 'orientation': 'Orientation',
+    'copies': 'Copies of card type', 'variant_copies': 'Copies of exact variant',
+    'modifiers': 'Modifier count', 'modifier_names': 'Modifier names',
+    'flips': 'Flip count', 'locked': 'Locked', 'favorite': 'Favourite',
+}
+SORT_MODES = {f'{key}_{direction}': f'{label}: {direction}'
+              for key, label in SORT_FIELDS.items() for direction in ('ascending', 'descending')}
+SORT_MODES['manual'] = 'Manual order'
+
+
+def sort_collection(rows, guild, owner):
+    preference = db.execute('SELECT mode FROM collection_sorts WHERE guild=? AND owner=?', (guild, owner)).fetchone()
+    mode = preference['mode'] if preference and preference['mode'] in SORT_MODES else 'id_ascending'
+    if mode == 'manual':
+        order = manual_ids(guild, owner)
+        positions = {card: n for n, card in enumerate(order)}
+        return sorted(rows, key=lambda r: (positions.get(r['id'], len(order)), r['id']))
+    field, direction = mode.rsplit('_', 1)
+    # Count across the whole collection, even in filtered searches.
+    all_rows = db.execute('SELECT * FROM cards WHERE guild=? AND owner=?', (guild, owner)).fetchall()
+    def variant(row):
+        return (row['country'], row['rarity'], *flip_flags(row), tuple(sorted(card_modifiers(row))))
+    from collections import Counter
+    copies = Counter(r['country'] for r in all_rows)
+    variants = Counter(variant(r) for r in all_rows)
+    locks = {r[0] for r in db.execute('SELECT card_id FROM sell_locks WHERE guild=? AND owner=?', (guild, owner))}
+    favorites = {r[0] for r in db.execute('SELECT card_id FROM card_favorites WHERE guild=? AND owner=?', (guild, owner))}
+    def key(row):
+        item = item_info(row['country'])
+        mods = card_modifiers(row)
+        horizontal, vertical = flip_flags(row)
+        values = {
+            'id': row['id'], 'name': item['name'].casefold(),
+            'rarity': list(eco.RARITIES).index(row['rarity']) if row['rarity'] in eco.RARITIES else -1,
+            'value': sale_price(item, row['rarity'], row), 'type': row['country'].casefold(),
+            'artist': str(item.get('ARTIST:', 'Unknown')).casefold(),
+            'orientation': item.get('orientation', ''), 'copies': copies[row['country']],
+            'variant_copies': variants[variant(row)], 'modifiers': len(mods),
+            'modifier_names': tuple(sorted(mods)), 'flips': int(horizontal) + int(vertical),
+            'horizontal': horizontal, 'vertical': vertical, 'locked': row['id'] in locks,
+            'favorite': row['id'] in favorites, 'admin': 'admin' in mods,
+            'cloudy': 'cloudy' in mods, 'bouncy': 'bouncy' in mods,
+            'seasonal': len(set(mods) & set(SEASONAL_WINDOWS)),
+        }
+        return values[field]
+    # Card ID is the stable tie breaker in either direction.
+    return sorted(sorted(rows, key=lambda r: r['id']), key=key, reverse=direction == 'descending')
+
+
+@bot.tree.command(name='sort', description='Save your collection order: 27 options. Use /sortindex for the full list.')
+@app_commands.guild_only()
+@app_commands.describe(order='Search a field such as rarity, name, value, locked, or favourite; choose a direction.')
+async def sort_command(interaction: discord.Interaction, order: str):
+    if order not in SORT_MODES:
+        return await interaction.response.send_message('Choose an order from autocomplete. There are 27 options; type part of a field or direction to search.', ephemeral=True)
+    with db:
+        db.execute('INSERT INTO collection_sorts VALUES(?,?,?) ON CONFLICT(guild,owner) DO UPDATE SET mode=excluded.mode',
+                   (interaction.guild_id, interaction.user.id, order))
+    await interaction.response.send_message(f'Collection order saved: {SORT_MODES[order]}. Applies to /collection, /collectionlocked, /collectionunlocked and /collectionsearch in this server.', ephemeral=True)
+
+
+@sort_command.autocomplete('order')
+async def sort_autocomplete(interaction: discord.Interaction, current: str):
+    words = current.casefold().split()
+    return [app_commands.Choice(name=label, value=mode) for mode, label in SORT_MODES.items()
+            if all(word in (label + ' ' + mode).casefold() for word in words)][:25]
+
+
+def manual_ids(guild, owner):
+    row = db.execute('SELECT ids FROM manual_collection_orders WHERE guild=? AND owner=?', (guild, owner)).fetchone()
+    owned = {r[0] for r in db.execute('SELECT id FROM cards WHERE guild=? AND owner=?', (guild, owner))}
+    return [card for card in json.loads(row['ids']) if card in owned] if row else []
+
+
+def save_manual(guild, owner, ids):
+    with db:
+        db.execute('INSERT OR REPLACE INTO manual_collection_orders VALUES(?,?,?)', (guild, owner, json.dumps(ids)))
+        db.execute("INSERT OR REPLACE INTO collection_sorts VALUES(?,?,'manual')", (guild, owner))
+
+
+@bot.tree.command(name='manualsort', description='Enter one card ID per use, in order. Reset starts a new order.')
+@app_commands.guild_only()
+async def manualsort(interaction: discord.Interaction, id: int, reset: bool = False):
+    guild, owner = interaction.guild_id, interaction.user.id
+    if not db.execute('SELECT 1 FROM cards WHERE id=? AND guild=? AND owner=?', (id, guild, owner)).fetchone():
+        return await interaction.response.send_message('You must own that card in this server.', ephemeral=True)
+    ids = [] if reset else manual_ids(guild, owner)
+    if id in ids:
+        return await interaction.response.send_message('That ID is already in your manual order. Use /manualsortbefore or /manualsortafter to move it.', ephemeral=True)
+    ids.append(id)
+    save_manual(guild, owner, ids)
+    await interaction.response.send_message(f'Card #{id} placed at position {len(ids)}. Enter the next ID with /manualsort. Remaining cards follow in ID order.', ephemeral=True)
+
+
+async def move_manual(interaction, card, target, after):
+    guild, owner = interaction.guild_id, interaction.user.id
+    rows = db.execute('SELECT * FROM cards WHERE guild=? AND owner=?', (guild, owner)).fetchall()
+    owned = {r['id'] for r in rows}
+    if card == target or card not in owned or target not in owned:
+        return await interaction.response.send_message('Choose two different cards you own in this server.', ephemeral=True)
+    ids = [r['id'] for r in sort_collection(rows, guild, owner)]
+    ids.remove(card)
+    ids.insert(ids.index(target) + int(after), card)
+    save_manual(guild, owner, ids)
+    await interaction.response.send_message(f'Card #{card} moved {"after" if after else "before"} #{target}. Manual order saved.', ephemeral=True)
+
+
+@bot.tree.command(name='manualsortbefore', description='Move your card immediately before another card.')
+@app_commands.guild_only()
+async def manualsortbefore(interaction: discord.Interaction, id: int, target: int):
+    await move_manual(interaction, id, target, False)
+
+
+@bot.tree.command(name='manualsortafter', description='Move your card immediately after another card.')
+@app_commands.guild_only()
+async def manualsortafter(interaction: discord.Interaction, id: int, target: int):
+    await move_manual(interaction, id, target, True)
+
+
+@bot.tree.command(name='sortindex', description='List every collection sorting option and manual sorting command.')
+@app_commands.guild_only()
+async def sortindex(interaction: discord.Interaction):
+    lines = [f'{n}. {label} ({mode})' for n, (mode, label) in enumerate(SORT_MODES.items(), 1)]
+    await interaction.response.send_message('Collection sorting options:\n' + '\n'.join(lines) + '\n/manualsort id [reset] adds IDs one at a time. /manualsortbefore id target and /manualsortafter id target move cards. /sort order:manual restores your saved order.', ephemeral=True)
+
+
 async def send_collection(interaction, member, page, locked=None):
     member = member or interaction.user
     query = 'FROM cards WHERE guild=? AND owner=?'
@@ -546,8 +705,8 @@ async def send_collection(interaction, member, page, locked=None):
         query += (' AND ' + ('' if locked else 'NOT ') +
                   'EXISTS (SELECT 1 FROM sell_locks WHERE card_id=cards.id)')
     total = db.execute('SELECT COUNT(*) ' + query, params).fetchone()[0]
-    rows = db.execute('SELECT * ' + query + ' ORDER BY id LIMIT 20 OFFSET ?',
-                      (*params, (page-1)*20)).fetchall()
+    rows = sort_collection(db.execute('SELECT * ' + query, params).fetchall(), interaction.guild_id, member.id)
+    rows = rows[(page-1)*20:page*20]
     lines = [f"{card_index(r['id'])} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {variant_label(r['rarity'], *flip_flags(r), modifiers=card_modifiers(r))}" for r in rows]
     label = 'collection' if locked is None else ('locked cards' if locked else 'unlocked cards')
     embed = discord.Embed(title=f'{member.display_name}’s {label}', description='\n'.join(lines) or 'No cards on this page.')
@@ -841,12 +1000,16 @@ async def ctake(interaction:discord.Interaction,member:discord.Member,amount:app
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
-async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal',horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False,cloudy:bool=False):
+async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal',horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False,cloudy:bool=False,bouncy:bool=False,hyper:bool=False):
     if (admin or cloudy) and rarity is not None and rarity not in ADMIN_RARITIES:
         return await interaction.response.send_message('ADMIN only supports normal, holographic, glitch and inverted. CLOUDY uses the same rarities.', ephemeral=True)
     modifiers = ['admin'] if admin else []
     if cloudy:
         modifiers.append('cloudy')
+    if bouncy:
+        modifiers.append('bouncy')
+    if hyper:
+        modifiers.append('hyper')
     for key, enabled in (('spooky', spooky), ('hungry', hungry), ('festive', festive)):
         if enabled:
             if card not in CATALOG or not seasonal_image(CATALOG[card], key):
@@ -1017,9 +1180,13 @@ async def profile(interaction:discord.Interaction,user:discord.Member=None):
     embed.add_field(name='Mass Credit',value=f'{mc:,}',inline=True)
     embed.add_field(name='Chudlets',value=f'{money:,}',inline=True)
     embed.add_field(name='Rarest card',value=discord.utils.escape_markdown(description),inline=False)
+    attachment = None
+    favorite = None
     if custom and custom['favoritecard']:
         favorite = db.execute('SELECT * FROM cards WHERE id=? AND guild=? AND owner=?', (custom['favoritecard'], interaction.guild_id, member.id)).fetchone()
         if favorite:
+            await interaction.response.defer()
+            attachment = await set_card_embed_image(embed, item_info(favorite['country']), favorite['rarity'], *flip_flags(favorite), thumbnail=True, filename='favorite.png', modifiers=card_modifiers(favorite))
             embed.add_field(name='Favorite card', value=f"{card_index(favorite['id'])} · {discord.utils.escape_markdown(item_info(favorite['country'])['name'])} · {variant_label(favorite['rarity'], *flip_flags(favorite), modifiers=card_modifiers(favorite))}", inline=False)
     if custom and custom['setcompletion']:
         owned = {r['country'] for r in rows}
@@ -1039,7 +1206,8 @@ async def profile(interaction:discord.Interaction,user:discord.Member=None):
     if custom and custom['footerimage']:
         embed.set_image(url=custom['footerimage'])
     embed.set_footer(text=f'Mass Credit sale bonus: +{mc//10:,} chudlets per card sold.')
-    await interaction.response.send_message(embed=embed)
+    sender = interaction.followup.send if favorite else interaction.response.send_message
+    await sender(embed=embed, **({'file': attachment} if attachment else {}))
 
 
 def gift_owned_card(guild,sender,recipient,card_id):
@@ -1392,7 +1560,7 @@ def matched_card_ids(guild, owner, card, rarity=None, sell_last=True, respect_lo
 @app_commands.guild_only()
 @app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
 async def collectionsearch(interaction:discord.Interaction,card:str='',rarity:str=None,page:app_commands.Range[int,1,100000]=1):
-    rows=matched_card_ids(interaction.guild_id,interaction.user.id,card,rarity)
+    rows=sort_collection(matched_card_ids(interaction.guild_id,interaction.user.id,card,rarity), interaction.guild_id, interaction.user.id)
     portion=rows[(page-1)*20:page*20]
     text='\n'.join(f"{card_index(r['id'])} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {variant_label(r['rarity'], *flip_flags(r), modifiers=card_modifiers(r))}" for r in portion) or 'No matching cards.'
     await interaction.response.send_message(embed=discord.Embed(title=f'Collection search ({len(rows)} found) · Page {page}',description=text))
@@ -1547,10 +1715,10 @@ async def spawnspam(interaction:discord.Interaction):
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.choices(rarity=[app_commands.Choice(name=r.replace('_',' ').title(),value=r) for r in eco.RARITIES])
-async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:str=None,set:str=None,horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,cloudy:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False):
+async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:str=None,set:str=None,horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,cloudy:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False,bouncy:bool=False,hyper:bool=False):
     if (admin or cloudy) and rarity is not None and rarity not in ADMIN_RARITIES:
         return await interaction.response.send_message('ADMIN only supports normal, holographic, glitch and inverted.', ephemeral=True)
-    modifiers = (['admin'] if admin else []) + (['cloudy'] if cloudy else [])
+    modifiers = (['admin'] if admin else []) + (['cloudy'] if cloudy else []) + (['bouncy'] if bouncy else []) + (['hyper'] if hyper else [])
     modifiers += [key for key, enabled in (('spooky', spooky), ('hungry', hungry), ('festive', festive)) if enabled]
 
     settings=db.execute('SELECT channel FROM settings WHERE guild=?',(interaction.guild_id,)).fetchone()

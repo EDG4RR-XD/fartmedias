@@ -19,5 +19,13 @@
     "image": "cloudy.png",
     "blend": "screen",
     "chance": 0.02
+  },
+  "bouncy": {
+    "name": "BOUNCY",
+    "chance": 0.02
+  },
+  "hyper": {
+    "name": "HYPER",
+    "chance": 0.02
   }
 }

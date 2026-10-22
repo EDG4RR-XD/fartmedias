@@ -356,3 +356,49 @@ python -m unittest test_seasonal_modifiers test_modifiers test_flips -q
 Nine focused checks passed for seasonal date boundaries and 10% rolls, orientation selection, final layer order, stacking, year-round rigged overrides, ADMIN rendering, artist credits and flips.
 
 The repository also contains older tests. The original uploaded project and the modifier release both reported 10 failures and 15 errors across the pre-existing 59-test discovery suite, including outdated demo names, schema fixtures, and rarity expectations. Those legacy tests are not a clean release gate. Live Discord integration still needs a configured bot and server.
+
+
+## Favourite thumbnail, BOUNCY and collection sorting
+
+The owned card selected using `/profilecustomize favoritecard:<id>` appears in
+`/profile` as the thumbnail, including its rarity image, flips and modifiers.
+The footer image remains the large profile image. Selling or transferring the
+featured card clears it as before.
+
+BOUNCY renders the complete card as a transparent looping GIF at its original
+resolution, adding 8% vertical travel without cropping. A cycle lasts one second.
+It has an independent 2% spawn chance and works with every rarity and modifier.
+Use `bouncy:true` with `/spawnrigged` or `/spawnspamrigged` to force it.
+
+`/sort order:<autocomplete option>` saves a per-user, per-server collection order.
+Use `/sortindex` to see all 27 numbered options: ascending and descending for
+Card ID, Card name, Rarity, Sale value, Artist, Orientation, Copies of card type,
+Copies of exact variant, Modifier count, Modifier names, Flip count, Locked,
+and Favourite, plus saved Manual order.
+Item ID sorting overlaps card name grouping; individual modifier/flip flags and
+seasonal counts were removed in favour of modifier names/count and flip count.
+Old saved modes that were removed fall back to Card ID ascending.
+
+`/manualsort id:123` puts the first ID first. Repeat with each next ID.
+Use `reset:true` with the first ID to begin a fresh order. Repeated IDs are
+rejected. Unlisted and newly acquired cards follow in ascending ID order.
+`/manualsortbefore id:123 target:456` moves 123 immediately before 456;
+`/manualsortafter id:123 target:456` moves it immediately after 456.
+Both cards must belong to you in this server. Moving a card starts from your
+current displayed order and saves it as manual. `/sort order:manual` restores it
+if you switched to another sort.
+
+HYPER spins the complete rendered card clockwise once every two seconds as a
+transparent looping GIF. The canvas accommodates every angle without shrinking
+or cropping. Combined BOUNCY keeps its one-second bounce. HYPER has an independent
+2% spawn chance on every rarity; force it with `hyper:true` on `/spawnrigged` or
+`/spawnspamrigged`. Existing modifier compatibility rules still apply.
+
+Descending places enabled flags first. Rarity descending places rarer cards
+first. Card ID ascending is the default and breaks ties. Card IDs track their
+numeric order; recycled IDs do not represent acquisition dates. Copy counts use
+the entire owned collection. Sorting applies before pagination in `/collection`,
+`/collectionlocked`, `/collectionunlocked`, and `/collectionsearch`, including
+when another user views your collection. It changes display order only.
+
+Restart the bot to apply database migrations and synchronize slash commands.

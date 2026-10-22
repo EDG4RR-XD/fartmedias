@@ -10,7 +10,7 @@ class Profiles(unittest.IsolatedAsyncioTestCase):
         db=new_db();eco.migrate(db)
         with patch.object(b,'db',db):
             card=eco.allocate_card_id(db,1,10,'test','normal')
-            i=S(guild_id=1,user=S(id=10,display_name='Tester'),response=S(send_message=AsyncMock()))
+            i=S(guild_id=1,user=S(id=10,display_name='Tester'),response=S(send_message=AsyncMock(),defer=AsyncMock()),followup=S(send=AsyncMock()))
             await b.profilecustomize.callback(i,accentcolour='#64D545',footerimage='https://example.com/image.png',favoritecard=card,setcompletion=True)
             await b.profilecustomize.callback(i,accentcolour='112233')
             row=db.execute('SELECT * FROM profile_customizations').fetchone()
@@ -20,7 +20,7 @@ class Profiles(unittest.IsolatedAsyncioTestCase):
             await b.favorite.callback(i,card)
             self.assertIn('❤️',b.card_index(card))
             await b.profile.callback(i)
-            embed=i.response.send_message.call_args.kwargs['embed']
+            embed=i.followup.send.call_args.kwargs['embed']
             self.assertEqual(embed.colour.value,0x112233)
             self.assertEqual(embed.image.url,'https://example.com/image.png')
             self.assertIn('Favorite card',[f.name for f in embed.fields])
