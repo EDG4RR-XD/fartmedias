@@ -126,8 +126,10 @@ def image_for(item, rarity):
     return item.get('rarity_images', {}).get(rarity) or item.get('image_url')
 
 
-def sale_price(item, rarity):
-    return item.get('rarity_sell_values', {}).get(rarity, item.get('sell_value', 100))
+def sale_price(item, rarity, row=None):
+    base = item.get('rarity_sell_values', {}).get(rarity, item.get('sell_value', 100))
+    count = sum(flip_flags(row)) + len(set(card_modifiers(row))) if row is not None else 0
+    return base + 1500 * count
 
 
 def flip_flags(row):
@@ -612,7 +614,7 @@ async def sell_card(interaction:discord.Interaction,card_id:int):
     if not row:
         return await interaction.response.send_message('You do not own that card in this server.',ephemeral=False)
     item=item_info(row['country'])
-    price=sale_price(item,row['rarity'])
+    price=sale_price(item,row['rarity'],row)
     bonus=eco.sale_bonus(db,interaction.guild_id,interaction.user.id)
     await interaction.response.send_message(f"Sell {card_index(card_id)}, {discord.utils.escape_markdown(item['name'])} ({variant_label(row['rarity'], *flip_flags(row), modifiers=card_modifiers(row))}), for {price+bonus:,} chudlets (including {bonus:,} Mass Credit bonus)? This removes that copy from your collection. Confirm within 60 seconds.",view=SellView(interaction.guild_id,interaction.user.id,card_id,price),ephemeral=False)
 
@@ -1003,8 +1005,8 @@ class SellAllView(discord.ui.View):
             return await interaction.response.send_message('This sale has already been handled.',ephemeral=False)
         self.finished=True
         with db:
-            current=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? AND id NOT IN (SELECT card_id FROM sell_locks) ORDER BY id',(self.guild,self.owner)).fetchall()
-            current_quote=[(r['id'],sale_price(item_info(r['country']),r['rarity'])) for r in current]
+            current=db.execute('SELECT * FROM cards WHERE guild=? AND owner=? AND id NOT IN (SELECT card_id FROM sell_locks) ORDER BY id',(self.guild,self.owner)).fetchall()
+            current_quote=[(r['id'],sale_price(item_info(r['country']),r['rarity'],r)) for r in current]
             valid=current_quote==self.quoted
             if valid:
                 total=sum(price for _,price in self.quoted)+eco.sale_bonus(db,self.guild,self.owner,len(self.quoted))
@@ -1030,10 +1032,10 @@ class SellAllView(discord.ui.View):
 @bot.tree.command(name='sellall',description='Sell every card you own in this server, after confirmation.')
 @app_commands.guild_only()
 async def sellall(interaction:discord.Interaction):
-    rows=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? AND id NOT IN (SELECT card_id FROM sell_locks) ORDER BY id',(interaction.guild_id,interaction.user.id)).fetchall()
+    rows=db.execute('SELECT * FROM cards WHERE guild=? AND owner=? AND id NOT IN (SELECT card_id FROM sell_locks) ORDER BY id',(interaction.guild_id,interaction.user.id)).fetchall()
     if not rows:
         return await interaction.response.send_message('You have no cards to sell in this server.',ephemeral=False)
-    quoted=[(r['id'],sale_price(item_info(r['country']),r['rarity'])) for r in rows]
+    quoted=[(r['id'],sale_price(item_info(r['country']),r['rarity'],r)) for r in rows]
     total=sum(price for _,price in quoted)+eco.sale_bonus(db,interaction.guild_id,interaction.user.id,len(quoted))
     await interaction.response.send_message(f'Sell {len(rows)} unlocked cards, including their last copies, for {total:,} chudlets? Locked cards will remain in your collection. Shop items are unaffected. Confirm within 60 seconds.',view=SellAllView(interaction.guild_id,interaction.user.id,quoted),ephemeral=False)
 
@@ -1348,11 +1350,11 @@ class BulkTypeConfirm(discord.ui.View):
         if self.finished: return await interaction.response.send_message('Already processed.',ephemeral=True)
         self.finished=True
         with db:
-            rows=db.execute('SELECT id,country,rarity FROM cards WHERE guild=? AND owner=? AND id NOT IN (SELECT card_id FROM sell_locks)',(self.guild,self.owner)).fetchall()
+            rows=db.execute('SELECT * FROM cards WHERE guild=? AND owner=? AND id NOT IN (SELECT card_id FROM sell_locks)',(self.guild,self.owner)).fetchall()
             selling=[r for r in rows if r['id'] in self.ids]
             valid=len(selling)==len(self.ids)
             if valid:
-                prices=sum(sale_price(item_info(r['country']),r['rarity']) for r in selling)
+                prices=sum(sale_price(item_info(r['country']),r['rarity'],r) for r in selling)
                 total=prices+eco.sale_bonus(db,self.guild,self.owner,len(selling))
                 db.executemany('DELETE FROM cards WHERE id=?',[(r['id'],) for r in selling])
                 eco.recycle_ids(db,self.ids)
@@ -1371,7 +1373,7 @@ async def sellalltype(interaction:discord.Interaction,card:str,rarity:str=None,s
     rows=matched_card_ids(interaction.guild_id,interaction.user.id,card,rarity,sell_last,True)
     if not rows: return await interaction.response.send_message('No eligible unlocked cards found.')
     ids=[r['id'] for r in rows]
-    total=sum(sale_price(item_info(r['country']),r['rarity']) for r in rows)+eco.sale_bonus(db,interaction.guild_id,interaction.user.id,len(rows))
+    total=sum(sale_price(item_info(r['country']),r['rarity'],r) for r in rows)+eco.sale_bonus(db,interaction.guild_id,interaction.user.id,len(rows))
     await interaction.response.send_message(f'Sell {len(ids)} matching cards for {total:,} chudlets? Locked cards are skipped. sell_last={sell_last}. Confirm within 60 seconds.',view=BulkTypeConfirm(interaction.guild_id,interaction.user.id,ids))
 
 @bot.tree.command(name='ahsell',description='List your card for sale to other members for chudlets.')
