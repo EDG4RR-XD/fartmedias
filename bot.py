@@ -263,7 +263,7 @@ async def download_modifier_image(session, source, label):
     return payload
 
 
-async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=False, filename='card.png', modifiers=()):
+async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=False, filename='card.png', modifiers=(), error_details=None):
     image = image_for(item, rarity)
     if not image:
         return None, None
@@ -285,7 +285,9 @@ async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=
                     overlays[key] = await download_modifier_image(session, source, f'{key} {actual_orientation}')
         transformed = await asyncio.to_thread(transformed_image_bytes, payload, flip_horizontal, flip_vertical, modifiers, overlays)
         return f'attachment://{filename}', discord.File(transformed, filename=filename)
-    except Exception:
+    except Exception as error:
+        if error_details is not None:
+            error_details.append(f'{type(error).__name__}: {str(error)[:220]}')
         logging.exception('Image transform failed for card=%s rarity=%s modifiers=%s horizontal=%s vertical=%s base_url=%s',
                           item.get('id'), rarity, modifiers, flip_horizontal, flip_vertical, image)
         return None, None
@@ -293,14 +295,16 @@ async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=
 
 async def set_card_embed_image(embed, item, rarity, flip_horizontal=False, flip_vertical=False, *, thumbnail=False, filename='card.png', modifiers=()):
     embed.add_field(name='Artist', value='art by ' + discord.utils.escape_markdown(str(item.get('ARTIST:', 'Unknown'))), inline=False)
-    image_ref, attachment = await card_image_payload(item, rarity, flip_horizontal, flip_vertical, filename=filename, modifiers=modifiers)
+    errors = []
+    image_ref, attachment = await card_image_payload(item, rarity, flip_horizontal, flip_vertical, filename=filename, modifiers=modifiers, error_details=errors)
     if image_ref:
         if thumbnail:
             embed.set_thumbnail(url=image_ref)
         else:
             embed.set_image(url=image_ref)
     elif flip_horizontal or flip_vertical or modifiers:
-        embed.add_field(name='Image temporarily unavailable', value='The image modifiers could not be rendered. They are still saved on this card. Use /view later to retry.', inline=False)
+        detail = discord.utils.escape_markdown(errors[0]) if errors else 'Unknown image rendering error.'
+        embed.add_field(name='Image temporarily unavailable', value=f'Image rendering failed: {detail}\nModifiers remain saved. Check the source image URL in items.json and Railway logs.', inline=False)
     return attachment
 
 
@@ -434,7 +438,7 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizo
             pool=[pair for pair in pool if pair[0]['id'] in allowed]
     if {'admin', 'cloudy'} & set(modifiers):
         pool = [pair for pair in pool if pair[1] in ADMIN_RARITIES]
-    forced_seasonal = set(modifiers) & set(SEASONAL_WINDOWS)
+    forced_seasonal = frozenset(modifiers) & frozenset(SEASONAL_WINDOWS)
     if forced_seasonal:
         pool = [pair for pair in pool if all(seasonal_image(pair[0], key) for key in forced_seasonal)]
     if not pool:
@@ -1562,7 +1566,7 @@ async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:s
         return await interaction.response.send_message('That card does not belong to the selected set.',ephemeral=True)
     cards=[item for item in ACTIVE_ITEMS if (card is None or item['id']==card) and (set is None or item['id'] in eco.SET_DEFINITIONS[set]['members'])]
     rarities=[rarity] if rarity else list(ADMIN_RARITIES if (admin or cloudy) else eco.RARITIES)
-    forced_seasonal = set(modifiers) & set(SEASONAL_WINDOWS)
+    forced_seasonal = frozenset(modifiers) & frozenset(SEASONAL_WINDOWS)
     eligible_cards = [item for item in cards if all(seasonal_image(item, key) for key in forced_seasonal)]
     if not any(item['weight']*eco.RARITIES[r]>0 for item in eligible_cards for r in rarities):
         reason = 'Set matching TALL/WIDE overlays in modifiers.json and card orientations in items.json.' if forced_seasonal else 'Check the rarity, card, and set filters.'
