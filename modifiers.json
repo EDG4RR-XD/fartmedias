@@ -1,0 +1,12 @@
+{
+  "tall": {
+    "name": "Tall Overlay",
+    "image": "",
+    "chance": 0.0
+  },
+  "wide": {
+    "name": "Wide Overlay",
+    "image": "",
+    "chance": 0.0
+  }
+}

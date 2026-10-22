@@ -17,7 +17,7 @@ import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageChops
 from dotenv import load_dotenv
 import economy as eco
 
@@ -44,6 +44,13 @@ with db:
 
 # Customize items.json. Keep IDs stable once a collectible has been claimed.
 ROOT = Path(__file__).resolve().parent
+ADMIN_RARITIES = {'normal', 'holographic', 'glitch', 'inverted'}
+with (ROOT / 'modifiers.json').open(encoding='utf-8') as f:
+    MODIFIERS = json.load(f)
+for key in ('tall', 'wide'):
+    cfg = MODIFIERS[key]
+    if not isinstance(cfg.get('chance'), (int, float)) or not 0 <= cfg['chance'] <= 1:
+        raise ValueError('Modifier chance must be between 0 and 1.')
 SPAWN_MIN_SECONDS = 300
 SPAWN_MAX_SECONDS = 300
 CLAIM_SECONDS = 300
@@ -127,8 +134,16 @@ def flip_flags(row):
     return bool(row['flip_horizontal']) if 'flip_horizontal' in row.keys() else False, bool(row['flip_vertical']) if 'flip_vertical' in row.keys() else False
 
 
-def variant_label(rarity, flip_horizontal=False, flip_vertical=False):
-    parts=[rarity.replace('_',' ').title()]
+def card_modifiers(row):
+    return json.loads(row['modifiers']) if 'modifiers' in row.keys() else []
+
+
+def modifier_names(modifiers):
+    return ["ADMIN" if m == 'admin' else MODIFIERS[m].get('name', m.title()) for m in modifiers]
+
+
+def variant_label(rarity, flip_horizontal=False, flip_vertical=False, modifiers=()):
+    parts=[rarity.replace('_',' ').title()] + modifier_names(modifiers)
     if flip_horizontal:
         parts.append('Horizontal Flip')
     if flip_vertical:
@@ -151,9 +166,27 @@ def roll_flip_modifiers():
     return random.random() < eco.HORIZONTAL_FLIP_CHANCE, random.random() < eco.VERTICAL_FLIP_CHANCE
 
 
-def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False):
+def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False, modifiers=(), overlay_data=None):
     with Image.open(io.BytesIO(data)) as image:
         image = ImageOps.exif_transpose(image)
+        if modifiers:
+            image = image.convert('RGBA')
+        if 'admin' in modifiers:
+            with Image.open(ROOT / 'admin_gradient.png') as gradient:
+                gradient = gradient.convert('RGB').resize(image.size, Image.Resampling.BILINEAR)
+                alpha = image.getchannel('A')
+                image = ImageChops.multiply(image.convert('RGB'), gradient).convert('RGBA')
+                image.putalpha(alpha)
+        for key in ('tall', 'wide'):
+            if key in modifiers:
+                with Image.open(io.BytesIO(overlay_data[key])) as overlay:
+                    overlay = overlay.convert('RGBA')
+                    # Fit overlay onto a canvas large enough for both original sizes.
+                    width, height = max(image.width, overlay.width), max(image.height, overlay.height)
+                    canvas = Image.new('RGBA', (width, height))
+                    canvas.alpha_composite(image, ((width-image.width)//2, (height-image.height)//2))
+                    canvas.alpha_composite(overlay, ((width-overlay.width)//2, (height-overlay.height)//2))
+                    image = canvas
         if flip_horizontal:
             image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
         if flip_vertical:
@@ -164,11 +197,11 @@ def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False):
         return output
 
 
-async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=False, filename='card.png'):
+async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=False, filename='card.png', modifiers=()):
     image = image_for(item, rarity)
     if not image:
         return None, None
-    if not (flip_horizontal or flip_vertical):
+    if not (flip_horizontal or flip_vertical or modifiers):
         return image, None
     try:
         timeout = aiohttp.ClientTimeout(total=20)
@@ -176,7 +209,18 @@ async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=
             async with session.get(image) as response:
                 response.raise_for_status()
                 payload = await response.read()
-        transformed = await asyncio.to_thread(transformed_image_bytes, payload, flip_horizontal, flip_vertical)
+        overlays = {}
+        for key in ('tall', 'wide'):
+            if key in modifiers:
+                source = MODIFIERS[key]['image']
+                if source.startswith('https://'):
+                    async with aiohttp.ClientSession(timeout=timeout) as session:
+                        async with session.get(source) as response:
+                            response.raise_for_status()
+                            overlays[key] = await response.read()
+                else:
+                    overlays[key] = await asyncio.to_thread((ROOT / source).read_bytes)
+        transformed = await asyncio.to_thread(transformed_image_bytes, payload, flip_horizontal, flip_vertical, modifiers, overlays)
         return f'attachment://{filename}', discord.File(transformed, filename=filename)
     except Exception:
         # A non-flipped fallback must never masquerade as a flipped collectible.
@@ -184,15 +228,16 @@ async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=
         return None, None
 
 
-async def set_card_embed_image(embed, item, rarity, flip_horizontal=False, flip_vertical=False, *, thumbnail=False, filename='card.png'):
-    image_ref, attachment = await card_image_payload(item, rarity, flip_horizontal, flip_vertical, filename=filename)
+async def set_card_embed_image(embed, item, rarity, flip_horizontal=False, flip_vertical=False, *, thumbnail=False, filename='card.png', modifiers=()):
+    embed.add_field(name='Artist', value='art by ' + discord.utils.escape_markdown(str(item.get('ARTIST:', 'Unknown'))), inline=False)
+    image_ref, attachment = await card_image_payload(item, rarity, flip_horizontal, flip_vertical, filename=filename, modifiers=modifiers)
     if image_ref:
         if thumbnail:
             embed.set_thumbnail(url=image_ref)
         else:
             embed.set_image(url=image_ref)
-    elif flip_horizontal or flip_vertical:
-        embed.add_field(name='Image temporarily unavailable', value='The source image could not be flipped. The flip modifier is still saved on this card. Use /view later to retry.', inline=False)
+    elif flip_horizontal or flip_vertical or modifiers:
+        embed.add_field(name='Image temporarily unavailable', value='The image modifiers could not be rendered. They are still saved on this card. Use /view later to retry.', inline=False)
     return attachment
 
 
@@ -239,6 +284,7 @@ async def on_message(message):
             if not claimed:
                 return
             card_id, earned = eco.award_claim(db, message.guild.id, message.author.id, row['country'], row['rarity'], row['flip_horizontal'], row['flip_vertical'])
+            db.execute('UPDATE cards SET modifiers=? WHERE id=?', (row['modifiers'], card_id))
             db.execute('DELETE FROM bounties WHERE guild=? AND owner=? AND card=? AND rarity=?', (message.guild.id,message.author.id,row['country'],row['rarity']))
             db.execute('INSERT INTO claim_turns VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET owner=excluded.owner', (message.guild.id, message.author.id))
     item = item_info(row['country'])
@@ -248,10 +294,10 @@ async def on_message(message):
     # Ownership is committed before any Discord API calls.
     try:
         fh, fv = flip_flags(row)
-        await message.channel.send(f"{discord.utils.escape_markdown(message.author.display_name)} claimed **{discord.utils.escape_markdown(item['name'])} ({variant_label(row['rarity'], fh, fv)})**! Card #{card_id}. +{earned} chudlets.")
+        await message.channel.send(f"{discord.utils.escape_markdown(message.author.display_name)} claimed **{discord.utils.escape_markdown(item['name'])} ({variant_label(row['rarity'], fh, fv, card_modifiers(row))})**! Card #{card_id}. +{earned} chudlets.")
         original = await message.channel.fetch_message(row['message'])
-        embed = discord.Embed(title=item['name'], description=f"{variant_label(row['rarity'], fh, fv)} · Claimed! Card #{card_id}.", color=0x79B86D)
-        attachment = await set_card_embed_image(embed, item, row['rarity'], fh, fv, filename=f'claim-{card_id}.png')
+        embed = discord.Embed(title=item['name'], description=f"{variant_label(row['rarity'], fh, fv, card_modifiers(row))} · Claimed! Card #{card_id}.", color=0x79B86D)
+        attachment = await set_card_embed_image(embed, item, row['rarity'], fh, fv, filename=f'claim-{card_id}.png', modifiers=card_modifiers(row))
         if attachment:
             await original.edit(content=None, embed=embed, attachments=[attachment], view=None)
         else:
@@ -270,18 +316,21 @@ with db:
         if field not in columns:
             db.execute(f'ALTER TABLE rigged_spam ADD COLUMN {field} INTEGER')
 
+    if 'modifiers' not in columns:
+        db.execute("ALTER TABLE rigged_spam ADD COLUMN modifiers TEXT NOT NULL DEFAULT '[]'")
+
 def spam_active(guild):
     row=db.execute('SELECT until_time FROM spam_periods WHERE guild=?',(guild,)).fetchone()
     return bool(row and row['until_time'] > time.time())
 
 
 
-async def spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizontal_flip=None, vertical_flip=None):
+async def spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizontal_flip=None, vertical_flip=None, modifiers=None):
     async with spawn_lock:
-        return await _spawn(guild_id, channel, chosen_item, chosen_rarity, horizontal_flip, vertical_flip)
+        return await _spawn(guild_id, channel, chosen_item, chosen_rarity, horizontal_flip, vertical_flip, modifiers)
 
 
-async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizontal_flip=None, vertical_flip=None):
+async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizontal_flip=None, vertical_flip=None, modifiers=None):
     active = db.execute('SELECT 1 FROM spawns WHERE guild=? AND expires>?', (guild_id, time.time())).fetchone()
     if active:
         return False
@@ -293,8 +342,10 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizo
     rigged_session = chosen_item is None and chosen_rarity is None and spam_active(guild_id)
     rig = None
     if rigged_session:
-        rig=db.execute('SELECT rarity,card,set_id,horizontal_flip,vertical_flip FROM rigged_spam WHERE guild=?',(guild_id,)).fetchone()
+        rig=db.execute('SELECT * FROM rigged_spam WHERE guild=?',(guild_id,)).fetchone()
         if rig:
+            if modifiers is None:
+                modifiers = card_modifiers(rig)
             if horizontal_flip is None and rig['horizontal_flip'] is not None:
                 horizontal_flip = bool(rig['horizontal_flip'])
             if vertical_flip is None and rig['vertical_flip'] is not None:
@@ -302,11 +353,17 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizo
             chosen_rarity=rig['rarity']
             if rig['card']:
                 chosen_item=next((item for item in ITEMS if item['id']==rig['card']),None)
+    if modifiers is None:
+        modifiers = [k for k, c in MODIFIERS.items() if c['image'] and random.random() < c['chance']]
+    if 'admin' in modifiers and chosen_rarity and chosen_rarity not in ADMIN_RARITIES:
+        raise ValueError('ADMIN requires normal, holographic, glitch or inverted.')
     pool=bounty_spawn_pool(guild_id,chosen_item,chosen_rarity)
     if rigged_session and rig and rig['set_id']:
         if rig['set_id']:
             allowed=eco.SET_DEFINITIONS[rig['set_id']]['members']
             pool=[pair for pair in pool if pair[0]['id'] in allowed]
+    if 'admin' in modifiers:
+        pool = [pair for pair in pool if pair[1] in ADMIN_RARITIES]
     if not pool:
         raise ValueError('No positive spawn weights configured')
     item,rarity,_=random.choices(pool,weights=[pair[2] for pair in pool])[0]
@@ -315,8 +372,8 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizo
     flip_vertical = rolled_vertical if vertical_flip is None else vertical_flip
     holders=[r['owner'] for r in db.execute('SELECT owner FROM bounties WHERE guild=? AND card=? AND rarity=? ORDER BY owner',(guild_id,item['id'],rarity))]
     lifetime=600 if holders else CLAIM_SECONDS
-    embed = discord.Embed(title=item['name'], description=f"{variant_label(rarity, flip_horizontal, flip_vertical)} · Type **Claim** in this channel to collect this image.", color=0x79B86D)
-    attachment = await set_card_embed_image(embed, item, rarity, flip_horizontal, flip_vertical, filename=f'spawn-{guild_id}.png')
+    embed = discord.Embed(title=item['name'], description=f"{variant_label(rarity, flip_horizontal, flip_vertical, modifiers)} · Type **Claim** in this channel to collect this image.", color=0x79B86D)
+    attachment = await set_card_embed_image(embed, item, rarity, flip_horizontal, flip_vertical, filename=f'spawn-{guild_id}.png', modifiers=modifiers)
     embed.set_footer(text=f'Expires in {lifetime // 60} minutes.'+(' · Active bounty' if holders else ''))
     first=holders[:50]
     mentions=discord.AllowedMentions(everyone=False,roles=False,users=[discord.Object(id=user) for user in first],replied_user=False)
@@ -329,6 +386,7 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizo
         db.execute('UPDATE settings SET next_spawn=? WHERE guild=?', (spawned_at + lifetime, guild_id))
         db.execute('INSERT OR REPLACE INTO spawns(guild,channel,message,country,expires,rarity,flip_horizontal,flip_vertical) VALUES(?,?,?,?,?,?,?,?)',
                    (guild_id, channel.id, message.id, item['id'], spawned_at + lifetime, rarity, int(flip_horizontal), int(flip_vertical)))
+        db.execute('UPDATE spawns SET modifiers=? WHERE guild=?', (json.dumps(modifiers), guild_id))
     # Keep mention batches within Discord content/mention limits.
     for offset in range(50,len(holders),50):
         batch=holders[offset:offset+50]
@@ -410,7 +468,7 @@ async def send_collection(interaction, member, page, locked=None):
     total = db.execute('SELECT COUNT(*) ' + query, params).fetchone()[0]
     rows = db.execute('SELECT * ' + query + ' ORDER BY id LIMIT 20 OFFSET ?',
                       (*params, (page-1)*20)).fetchall()
-    lines = [f"{card_index(r['id'])} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {variant_label(r['rarity'], *flip_flags(r))}" for r in rows]
+    lines = [f"{card_index(r['id'])} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {variant_label(r['rarity'], *flip_flags(r), modifiers=card_modifiers(r))}" for r in rows]
     label = 'collection' if locked is None else ('locked cards' if locked else 'unlocked cards')
     embed = discord.Embed(title=f'{member.display_name}’s {label}', description='\n'.join(lines) or 'No cards on this page.')
     embed.set_footer(text=f'{total} cards · Page {page}/{max(1, (total+19)//20)} · Collections are per server')
@@ -443,8 +501,8 @@ async def view_card(interaction: discord.Interaction, card_id: int):
         return await interaction.response.send_message('No card with that ID in this server.', ephemeral=False)
     item = item_info(row['country'])
     fh, fv = flip_flags(row)
-    embed = discord.Embed(title=item['name'], description=f"Card {card_index(row['id'])} · {variant_label(row['rarity'], fh, fv)} · Owner: <@{row['owner']}>")
-    attachment = await set_card_embed_image(embed, item, row['rarity'], fh, fv, filename=f'view-{row["id"]}.png')
+    embed = discord.Embed(title=item['name'], description=f"Card {card_index(row['id'])} · {variant_label(row['rarity'], fh, fv, card_modifiers(row))} · Owner: <@{row['owner']}>")
+    attachment = await set_card_embed_image(embed, item, row['rarity'], fh, fv, filename=f'view-{row["id"]}.png', modifiers=card_modifiers(row))
     if not embed.image.url:
         embed.set_footer(text='Legacy card: no image has been configured for this item.')
     if attachment:
@@ -484,7 +542,7 @@ async def trade(interaction: discord.Interaction, member: discord.Member, give_i
     if not a or not b:
         return await interaction.response.send_message('Check the card IDs and their owners using /collection.', ephemeral=False)
     view = TradeView(interaction.guild_id, interaction.user.id, member.id, give_id, want_id)
-    await interaction.response.send_message(f"{member.display_name}: {interaction.user.display_name} offers {card_index(give_id)} ({discord.utils.escape_markdown(item_info(a['country'])['name'])}, {variant_label(a['rarity'], *flip_flags(a))}) for your {card_index(want_id)} ({discord.utils.escape_markdown(item_info(b['country'])['name'])}, {variant_label(b['rarity'], *flip_flags(b))}). Accept within 2 minutes. Otherwise the offer expires.", view=view)
+    await interaction.response.send_message(f"{member.display_name}: {interaction.user.display_name} offers {card_index(give_id)} ({discord.utils.escape_markdown(item_info(a['country'])['name'])}, {variant_label(a['rarity'], *flip_flags(a), modifiers=card_modifiers(a))}) for your {card_index(want_id)} ({discord.utils.escape_markdown(item_info(b['country'])['name'])}, {variant_label(b['rarity'], *flip_flags(b), modifiers=card_modifiers(b))}). Accept within 2 minutes. Otherwise the offer expires.", view=view)
 
 
 @bot.tree.command(name='balance', description='Check your chudlets balance.')
@@ -556,7 +614,7 @@ async def sell_card(interaction:discord.Interaction,card_id:int):
     item=item_info(row['country'])
     price=sale_price(item,row['rarity'])
     bonus=eco.sale_bonus(db,interaction.guild_id,interaction.user.id)
-    await interaction.response.send_message(f"Sell {card_index(card_id)}, {discord.utils.escape_markdown(item['name'])} ({variant_label(row['rarity'], *flip_flags(row))}), for {price+bonus:,} chudlets (including {bonus:,} Mass Credit bonus)? This removes that copy from your collection. Confirm within 60 seconds.",view=SellView(interaction.guild_id,interaction.user.id,card_id,price),ephemeral=False)
+    await interaction.response.send_message(f"Sell {card_index(card_id)}, {discord.utils.escape_markdown(item['name'])} ({variant_label(row['rarity'], *flip_flags(row), modifiers=card_modifiers(row))}), for {price+bonus:,} chudlets (including {bonus:,} Mass Credit bonus)? This removes that copy from your collection. Confirm within 60 seconds.",view=SellView(interaction.guild_id,interaction.user.id,card_id,price),ephemeral=False)
 
 
 class ShopSelect(discord.ui.Select):
@@ -703,7 +761,16 @@ async def ctake(interaction:discord.Interaction,member:discord.Member,amount:app
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
-async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal',horizontal_flip:bool=None,vertical_flip:bool=None):
+async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal',horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,tall:bool=None,wide:bool=None):
+    if admin and rarity is not None and rarity not in ADMIN_RARITIES:
+        return await interaction.response.send_message('ADMIN only supports normal, holographic, glitch and inverted.', ephemeral=True)
+    modifiers = ['admin'] if admin else []
+    for key, enabled in (('tall', tall), ('wide', wide)):
+        if enabled and not MODIFIERS[key]['image']:
+            return await interaction.response.send_message(f'Configure {key} image in modifiers.json first.', ephemeral=True)
+        if enabled or (enabled is None and MODIFIERS[key]['image'] and random.random() < MODIFIERS[key]['chance']):
+            modifiers.append(key)
+
     if card not in CATALOG or rarity not in eco.RARITIES:
         return await interaction.response.send_message('Choose a card from autocomplete and a valid rarity.',ephemeral=False)
     row=db.execute('SELECT channel FROM settings WHERE guild=?',(interaction.guild_id,)).fetchone()
@@ -711,7 +778,7 @@ async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='norma
         return await interaction.response.send_message('Run /setup first.',ephemeral=False)
     await interaction.response.defer(ephemeral=False)
     channel=bot.get_channel(row['channel']) or await bot.fetch_channel(row['channel'])
-    success=await spawn(interaction.guild_id,channel,CATALOG[card],rarity,horizontal_flip,vertical_flip)
+    success=await spawn(interaction.guild_id,channel,CATALOG[card],rarity,horizontal_flip,vertical_flip,modifiers)
     await interaction.followup.send('Chosen card spawned. Anyone can claim it normally.' if success else 'An image is already waiting. Claim it or wait for it to expire first.',ephemeral=False)
 
 
@@ -862,7 +929,7 @@ async def profile(interaction:discord.Interaction,user:discord.Member=None):
     order=list(eco.RARITIES)
     # RARITIES is ordered from most common to least common.
     rarest=max(rows,key=lambda row:order.index(row['rarity']) if row['rarity'] in order else -1) if rows else None
-    description=(f"{item_info(rarest['country'])['name']} ({variant_label(rarest['rarity'], *flip_flags(rarest))}), Card {card_index(rarest['id'])}" if rarest else 'None')
+    description=(f"{item_info(rarest['country'])['name']} ({variant_label(rarest['rarity'], *flip_flags(rarest), modifiers=card_modifiers(rarest))}), Card {card_index(rarest['id'])}" if rarest else 'None')
     custom = db.execute('SELECT * FROM profile_customizations WHERE guild=? AND owner=?', (interaction.guild_id, member.id)).fetchone()
     embed=discord.Embed(title=f'{member.display_name} | Profile', colour=custom['accentcolour'] if custom and custom['accentcolour'] is not None else None)
     embed.add_field(name='Mass Credit',value=f'{mc:,}',inline=True)
@@ -871,7 +938,7 @@ async def profile(interaction:discord.Interaction,user:discord.Member=None):
     if custom and custom['favoritecard']:
         favorite = db.execute('SELECT * FROM cards WHERE id=? AND guild=? AND owner=?', (custom['favoritecard'], interaction.guild_id, member.id)).fetchone()
         if favorite:
-            embed.add_field(name='Favorite card', value=f"{card_index(favorite['id'])} · {discord.utils.escape_markdown(item_info(favorite['country'])['name'])} · {variant_label(favorite['rarity'], *flip_flags(favorite))}", inline=False)
+            embed.add_field(name='Favorite card', value=f"{card_index(favorite['id'])} · {discord.utils.escape_markdown(item_info(favorite['country'])['name'])} · {variant_label(favorite['rarity'], *flip_flags(favorite), modifiers=card_modifiers(favorite))}", inline=False)
     if custom and custom['setcompletion']:
         owned = {r['country'] for r in rows}
         completed = [d['name'] for d in eco.SET_DEFINITIONS.values() if d['members'] and d['members'] <= owned]
@@ -915,7 +982,8 @@ async def givecard(interaction:discord.Interaction,card_id:int,user:discord.Memb
     if result is None:
         return await interaction.response.send_message('You do not own that card in this server. Check /collection.',ephemeral=False)
     item,rarity,reward,flip_horizontal,flip_vertical=result
-    text=f"Gave card #{card_id}, {discord.utils.escape_markdown(item_info(item)['name'])} ({variant_label(rarity, flip_horizontal, flip_vertical)}), to {discord.utils.escape_markdown(user.display_name)}."
+    modifiers=card_modifiers(db.execute('SELECT * FROM cards WHERE id=?',(card_id,)).fetchone())
+    text=f"Gave card #{card_id}, {discord.utils.escape_markdown(item_info(item)['name'])} ({variant_label(rarity, flip_horizontal, flip_vertical, modifiers)}), to {discord.utils.escape_markdown(user.display_name)}."
     if reward:
         text+=f' The recipient earned {reward:,} chudlets for collection completion.'
     await interaction.response.send_message(text,ephemeral=False)
@@ -1244,7 +1312,7 @@ def matched_card_ids(guild, owner, card, rarity=None, sell_last=True, respect_lo
 async def collectionsearch(interaction:discord.Interaction,card:str='',rarity:str=None,page:app_commands.Range[int,1,100000]=1):
     rows=matched_card_ids(interaction.guild_id,interaction.user.id,card,rarity)
     portion=rows[(page-1)*20:page*20]
-    text='\n'.join(f"{card_index(r['id'])} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {variant_label(r['rarity'], *flip_flags(r))}" for r in portion) or 'No matching cards.'
+    text='\n'.join(f"{card_index(r['id'])} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} · {variant_label(r['rarity'], *flip_flags(r), modifiers=card_modifiers(r))}" for r in portion) or 'No matching cards.'
     await interaction.response.send_message(embed=discord.Embed(title=f'Collection search ({len(rows)} found) · Page {page}',description=text))
 
 @bot.tree.command(name='cardsearch',description='Find cards of a type and the players who own them.')
@@ -1254,7 +1322,7 @@ async def cardsearch(interaction:discord.Interaction,card:str='',rarity:str=None
     rows=db.execute('SELECT * FROM cards WHERE guild=? ORDER BY id',(interaction.guild_id,)).fetchall()
     chosen=[r for r in rows if (not card or card.casefold() in item_info(r['country'])['name'].casefold() or card.casefold()==r['country'].casefold()) and (not rarity or rarity==r['rarity'])]
     portion=chosen[(page-1)*15:page*15]
-    text='\n'.join(f"{card_index(r['id'])} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} ({variant_label(r['rarity'], *flip_flags(r))}) · <@{r['owner']}>" for r in portion) or 'No matching cards.'
+    text='\n'.join(f"{card_index(r['id'])} · {discord.utils.escape_markdown(item_info(r['country'])['name'])} ({variant_label(r['rarity'], *flip_flags(r), modifiers=card_modifiers(r))}) · <@{r['owner']}>" for r in portion) or 'No matching cards.'
     await interaction.response.send_message(embed=discord.Embed(title=f'All collections ({len(chosen)} found) · Page {page}',description=text))
 
 @bot.tree.command(name='selllock',description='Toggle protection against /sellall and /sellalltype.')
@@ -1312,7 +1380,8 @@ async def ahsell(interaction:discord.Interaction,card_id:int,price:app_commands.
     with db:
         row=db.execute('SELECT * FROM cards WHERE id=? AND guild=? AND owner=?',(card_id,interaction.guild_id,interaction.user.id)).fetchone()
         if row:
-            db.execute('INSERT INTO auction_listings VALUES(?,?,?,?,?,?,?,?,?)',(card_id,interaction.guild_id,interaction.user.id,row['country'],row['rarity'],int(bool(row['flip_horizontal'])) if 'flip_horizontal' in row.keys() else 0,int(bool(row['flip_vertical'])) if 'flip_vertical' in row.keys() else 0,price,time.time()))
+            db.execute('INSERT INTO auction_listings(card_id,guild,seller,item,rarity,flip_horizontal,flip_vertical,price,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(card_id,interaction.guild_id,interaction.user.id,row['country'],row['rarity'],int(bool(row['flip_horizontal'])) if 'flip_horizontal' in row.keys() else 0,int(bool(row['flip_vertical'])) if 'flip_vertical' in row.keys() else 0,price,time.time()))
+            db.execute('UPDATE auction_listings SET modifiers=? WHERE card_id=?',(row['modifiers'],card_id))
             db.execute('DELETE FROM sell_locks WHERE card_id=?',(card_id,))
             db.execute('DELETE FROM cards WHERE id=?',(card_id,))
     await interaction.response.send_message(f'Listed card #{card_id} for {price:,} chudlets. Use /ah to find it.' if row else 'You do not own that card.')
@@ -1333,6 +1402,7 @@ class AuctionBuy(discord.ui.View):
                 if paid:
                     eco.credit(db,interaction.guild_id,current['seller'],current['price'])
                     db.execute('INSERT INTO cards(id,guild,owner,country,rarity,flip_horizontal,flip_vertical) VALUES(?,?,?,?,?,?,?)',(current['card_id'],interaction.guild_id,interaction.user.id,current['item'],current['rarity'],current['flip_horizontal'],current['flip_vertical']))
+                    db.execute('UPDATE cards SET modifiers=? WHERE id=?',(current['modifiers'],current['card_id']))
                     db.execute('DELETE FROM auction_listings WHERE card_id=?',(current['card_id'],))
                     db.execute('INSERT OR IGNORE INTO discoveries VALUES(?,?,?)',(interaction.guild_id,interaction.user.id,current['item']))
                     eco.set_bonus(db,interaction.guild_id,interaction.user.id,current['item'])
@@ -1348,6 +1418,7 @@ class AuctionBuy(discord.ui.View):
             current=db.execute('SELECT * FROM auction_listings WHERE card_id=? AND seller=?',(listing['card_id'],interaction.user.id)).fetchone()
             if current:
                 db.execute('INSERT INTO cards(id,guild,owner,country,rarity,flip_horizontal,flip_vertical) VALUES(?,?,?,?,?,?,?)',(current['card_id'],current['guild'],current['seller'],current['item'],current['rarity'],current['flip_horizontal'],current['flip_vertical']))
+                db.execute('UPDATE cards SET modifiers=? WHERE id=?',(current['modifiers'],current['card_id']))
                 db.execute('DELETE FROM auction_listings WHERE card_id=?',(current['card_id'],))
         self.stop();await interaction.response.edit_message(content='Listing cancelled; card returned.' if current else 'Listing no longer available.',embed=None,view=None)
 
@@ -1358,7 +1429,7 @@ async def ah(interaction:discord.Interaction,page:app_commands.Range[int,1,10000
     if not rows:return await interaction.response.send_message('No listings on this page.')
     embeds=[]
     for row in rows:
-        embed=discord.Embed(title=f"#{row['card_id']} · {item_info(row['item'])['name']}",description=f"{variant_label(row['rarity'], bool(row['flip_horizontal']), bool(row['flip_vertical']))} · {row['price']:,} chudlets · Seller <@{row['seller']}>")
+        embed=discord.Embed(title=f"#{row['card_id']} · {item_info(row['item'])['name']}",description=f"{variant_label(row['rarity'], bool(row['flip_horizontal']), bool(row['flip_vertical']), card_modifiers(row))} · {row['price']:,} chudlets · Seller <@{row['seller']}>")
         embeds.append(embed)
     view=AuctionSelect(rows)
     await interaction.response.send_message(content=f'Auction market · Page {page}. Select a card to buy or cancel your listing.',embeds=embeds,view=view)
@@ -1371,7 +1442,7 @@ class AuctionSelect(discord.ui.View):
         async def selected(interaction):
             card_id=int(select.values[0]);row=db.execute('SELECT * FROM auction_listings WHERE guild=? AND card_id=?',(interaction.guild_id,card_id)).fetchone()
             if not row: return await interaction.response.send_message('Listing unavailable.',ephemeral=True)
-            await interaction.response.send_message(f"Card #{card_id}: {item_info(row['item'])['name']} ({variant_label(row['rarity'], bool(row['flip_horizontal']), bool(row['flip_vertical']))}) · {row['price']:,} chudlets",view=AuctionBuy(dict(row)),ephemeral=True)
+            await interaction.response.send_message(f"Card #{card_id}: {item_info(row['item'])['name']} ({variant_label(row['rarity'], bool(row['flip_horizontal']), bool(row['flip_vertical']), card_modifiers(row))}) · {row['price']:,} chudlets",view=AuctionBuy(dict(row)),ephemeral=True)
         select.callback=selected;self.add_item(select)
 
 @bot.tree.command(name='spawnspam',description='Administrator: continuously spawn on claim for five minutes.')
@@ -1393,7 +1464,16 @@ async def spawnspam(interaction:discord.Interaction):
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.choices(rarity=[app_commands.Choice(name=r.replace('_',' ').title(),value=r) for r in eco.RARITIES])
-async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:str=None,set:str=None,horizontal_flip:bool=None,vertical_flip:bool=None):
+async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:str=None,set:str=None,horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,tall:bool=None,wide:bool=None):
+    if admin and rarity is not None and rarity not in ADMIN_RARITIES:
+        return await interaction.response.send_message('ADMIN only supports normal, holographic, glitch and inverted.', ephemeral=True)
+    modifiers = ['admin'] if admin else []
+    for key, enabled in (('tall', tall), ('wide', wide)):
+        if enabled and not MODIFIERS[key]['image']:
+            return await interaction.response.send_message(f'Configure {key} image in modifiers.json first.', ephemeral=True)
+        if enabled or (enabled is None and MODIFIERS[key]['image'] and random.random() < MODIFIERS[key]['chance']):
+            modifiers.append(key)
+
     settings=db.execute('SELECT channel FROM settings WHERE guild=?',(interaction.guild_id,)).fetchone()
     if not settings:
         return await interaction.response.send_message('Use /setup to configure the spawn channel first.',ephemeral=True)
@@ -1406,12 +1486,13 @@ async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:s
     if card is not None and set is not None and card not in eco.SET_DEFINITIONS[set]['members']:
         return await interaction.response.send_message('That card does not belong to the selected set.',ephemeral=True)
     cards=[item for item in ACTIVE_ITEMS if (card is None or item['id']==card) and (set is None or item['id'] in eco.SET_DEFINITIONS[set]['members'])]
-    rarities=[rarity] if rarity else list(eco.RARITIES)
+    rarities=[rarity] if rarity else list(ADMIN_RARITIES if admin else eco.RARITIES)
     if not any(item['weight']*eco.RARITIES[r]>0 for item in cards for r in rarities):
         return await interaction.response.send_message('No spawnable cards match these filters.',ephemeral=True)
     with db:
         db.execute('INSERT INTO spam_periods VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET until_time=excluded.until_time',(interaction.guild_id,time.time()+300))
         db.execute('INSERT INTO rigged_spam(guild,rarity,card,set_id,horizontal_flip,vertical_flip) VALUES(?,?,?,?,?,?) ON CONFLICT(guild) DO UPDATE SET rarity=excluded.rarity,card=excluded.card,set_id=excluded.set_id,horizontal_flip=excluded.horizontal_flip,vertical_flip=excluded.vertical_flip',(interaction.guild_id,rarity,card,set,None if horizontal_flip is None else int(horizontal_flip),None if vertical_flip is None else int(vertical_flip)))
+        db.execute('UPDATE rigged_spam SET modifiers=? WHERE guild=?',(json.dumps(modifiers),interaction.guild_id))
         db.execute('UPDATE settings SET next_spawn=? WHERE guild=?',(time.time(),interaction.guild_id))
     description=', '.join(x for x in [f"rarity: {rarity}" if rarity else None,f"card: {item_info(card)['name']}" if card else None,f"set: {eco.SET_DEFINITIONS[set]['name']}" if set else None, f"horizontal flip: {horizontal_flip}" if horizontal_flip is not None else None, f"vertical flip: {vertical_flip}" if vertical_flip is not None else None] if x) or 'all cards and rarities'
     await interaction.response.send_message(f'Rigged spawn spam enabled for 5 minutes ({description}). A matching card spawns after each claim. An ending announcement will be sent.')

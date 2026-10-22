@@ -373,3 +373,44 @@ All fields are optional and scoped to this server. Hex colours use six digits. U
 ✨ marks Holographic, Inverted, Glitch and any flipped card in spawns and listings.
 
 /profilecustomize raritycompletion:True shows cards for which you currently own every base rarity. Set False to hide it. Flips do not add required rarities. Omitted options keep their saved values.
+
+## ADMIN, artist credits and image overlays
+
+Use `/spawnrigged ... admin:True` or `/spawnspamrigged ... admin:True`.
+ADMIN is never randomly rolled. It supports only normal, holographic,
+glitch (Glitched), and inverted. With ADMIN spam and no selected rarity,
+the pool is restricted to those four. Unsupported combinations are rejected.
+ADMIN uses the supplied `admin_gradient.png` in Multiply mode at full opacity.
+The gradient stretches to the source image, with its original alpha preserved.
+Both image flips happen after every overlay. Modifiers stay with claimed,
+traded, gifted and auctioned cards. Existing saves migrate automatically.
+
+Every item in `items.json` now contains `"ARTIST:": "Unknown"`.
+Replace Unknown with the artist's name. Spawns and `/view` show
+`art by {artist}`. Restart the bot after changing configuration.
+
+Configure the two independent image modifiers in `modifiers.json`:
+
+```json
+{
+  "tall": {"name": "Tall Overlay", "image": "overlays/tall.png", "chance": 0.01},
+  "wide": {"name": "Wide Overlay", "image": "overlays/wide.png", "chance": 0.01}
+}
+```
+
+Use a local PNG path relative to the bot directory, or a public HTTPS image URL.
+The names are customizable. Chances range from 0 to 1; 0.01 means 1%.
+The supplied configuration has empty paths and zero chances, so add your own
+art first. Transparent PNGs preserve the visible card underneath.
+Tall and wide are independent overlays and can stack on any rarity and ADMIN.
+They can be forced with `tall:True` / `wide:True` in either rigged command.
+The tall and wide names identify your two artwork slots; they do not filter
+cards by aspect ratio. Overlays are centered at their native dimensions on a
+canvas large enough for both the card and overlay. Prepare overlay art at the
+intended card resolution, including any added transparent margins.
+Layer order: rarity image, ADMIN Multiply, tall overlay, wide overlay, flips.
+Rigged spam holds its chosen modifiers for the session. Regular spawn chances
+are rolled independently for each spawn. Shop purchases have no modifiers.
+
+Include `modifiers.json`, `admin_gradient.png`, and the `overlays` folder when
+uploading the updated bot. The Dockerfile includes them automatically.
