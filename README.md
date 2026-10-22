@@ -1,395 +1,193 @@
-## Latest update: /cardshop and character-family balancing
+# Fartmedias Discord card bot
 
-Update bot.py, economy.py and items.json from this archive in your existing GitHub repository, then deploy the latest commit. This release is based on your uploaded fartmedias-main (2).zip. It retains your card IDs, images, sets, drawing pool, rarity probabilities and shop art reward definitions. Do not change DATA_DIR or remove the existing volume. Download /backup before deployment. No requirements.txt or Dockerfile changes are needed.
+Collect character cards, trade copies, earn and spend chudlets, track sets, and request drawing prompts. Collections, balances, profiles, bounties, and rewards are scoped to each Discord server. Card IDs identify individual copies and are allocated across the saved database.
 
-/cardshop opens a PUBLIC menu with dropdown 1 for Card, dropdown 2 for Rarity, a Buy button, and Previous/Next card-page buttons. Your 29 cards span two dropdown pages because Discord limits each dropdown to 25 options. The Buy button stays disabled until both choices are selected. The preview shows the chosen variant image, sell price, purchase price and current balance. Each copy costs exactly five times its current effective sell value, including rarity-specific prices. Clicking Buy charges chudlets and gives one card copy. Other users can see the menu but only its owner can use its controls; others must open their own /cardshop. After a successful purchase the menu closes. Open /cardshop again to buy another copy. The menu expires after three minutes of inactivity or a bot restart.
+This guide describes the current code. It replaces the older accumulated release notes.
 
-Purchased cards appear immediately in /collection, /view, /itemtrack, /settrack, /raritytrack and /list. They count toward completion. Completing a named set pays the existing one-time 10,000-chudlet bonus; completing all rarities of a base card pays the existing one-time 5000-chudlet bonus. Those payouts occur inside the purchase transaction. A previously paid reward does not pay again. Purchases record the base card as discovered and do not award first-claim, five-copy claim or card-trade bonuses. They do not reset the consecutive-claim restriction or clear a bounty. The shop sells all cards currently defined in items.json in all currently configured rarities, including weight-0 rarities/cards; old archived definitions removed from items.json are not in the menu.
+## Setup and running
 
-Payment, new card, discovery records, completion rewards and purchase receipt are committed atomically. Insufficient funds add no card. The same interaction cannot charge twice. A new card_purchases table stores transaction IDs, player/server, card ID, price, rarity and earned completion rewards and is included in database backups. If Discord cannot display the receipt after the transaction commits, /collection and /balance still show the saved result.
+1. Create a Discord bot, enable Message Content Intent in the Developer Portal, and invite it with the `bot` and `applications.commands` scopes.
+2. Install Python 3.12 or use the supplied Dockerfile.
+3. Install dependencies with `pip install -r requirements.txt`.
+4. Set `DISCORD_TOKEN` in your hosting environment or a local `.env` file. Keep the token private.
+5. Optionally set `TEST_GUILD_ID` to sync slash commands to one test server. Without it, commands sync globally.
+6. Set `DATA_DIR` to a persistent directory. The default is `./data`; the database is `DATA_DIR/flags.db`.
+7. Start with `python bot.py`.
+8. Run `/setup channel:#your-channel` to enable automatic spawning.
 
-Balancing changes apply to ALL base designs/variants of each named character family:
+The spawn channel needs View Channel, Send Messages, Embed Links, and Read Message History. Give the bot Attach Files for transformed card images and backups, and permission to remove its spawn messages where needed.
 
-- All four Seadweller entries: base and every rarity sell price ×3. Spawn weights unchanged.
-- All four Thistle entries: base and every rarity sell price ×0.5; spawn weights 10 to 20.
-- All five Tangelo entries: base and every rarity sell price ×2; each spawn weight 10 to 8.
-- All five Deli/Green Delicious entries: spawn weights 10 to 20; sale prices unchanged.
-- Gamble and Sophie entries: unchanged.
+For Railway, keep the existing persistent volume and point `DATA_DIR` at its mount path, for example `/data`. Update source files in your connected repository. The Dockerfile packages the configuration, gradient, and `overlays` directory. Local overlay art must be included in that directory to be copied by this Dockerfile.
 
-For example, normal Seadweller variants now sell for 150 and cost 750; normal Thistle sells for 25 and costs 125; normal Tangelo sells for 100 and costs 500. The base sell_value fallback for the first Seadweller entry was 10 in your file and is now 30; its explicit normal rarity override was 50 and is now 150. These multipliers were applied once to the supplied configuration, not on every bot startup. Prices change for existing owned cards too because sales use the current configuration. Weights are relative, so doubling a weight increases relative frequency rather than guaranteeing exactly twice the final normalized percentage.
+Use a separate bot token, test server, and data directory for development. Schema updates happen automatically at startup; keep the existing database when updating.
 
-Validation: eight card-shop tests plus sixteen existing tracking/bounty checks passed (24 focused checks). They cover menu selection/pagination/ownership, 5× pricing, insufficient funds, duplicate interactions, rollback, saved card/rarity ownership and one-time set/rarity completion payouts. All 29 definitions were checked against the original for the requested price/weight changes and preserved IDs/images/set memberships. Live Discord verification requires your deployed app.
+## Spawning and claiming
 
-## Latest update: /bountyset card rarity
+`/setup channel` requires Manage Server. It saves the spawn channel and schedules the first spawn within roughly five seconds.
 
-Example: /bountyset card:Seadweller rarity:gold. Use autocomplete to select a card and choose its rarity. One active bounty is saved per user per server. Setting another bounty replaces the previous one. It costs no chudlets and creates no currency rewards. Cards and rarities with zero random spawn weight cannot be selected.
+`/spawn` requires Manage Server and requests a random spawn in the configured channel. It does not replace an active spawn.
 
-The selected EXACT card-and-rarity combination receives 1.5 times its usual random selection weight in this server. The base card's other rarities do not get that bonus. Multiple players targeting the same pair share a single 1.5 multiplier, rather than stacking. Different pairs can each be boosted. Like all weighted choices, results are normalized against the other weights; a 50% weight boost is not an additional 50 percentage points or a guaranteed appearance.
+Type `Claim` in the spawn's channel to collect it. One spawn can be active per server. The normal schedule uses five-minute intervals, and ordinary spawns remain claimable for five minutes. The background loop checks about every five seconds, so timing is approximate. Claims during spawn spam make the next spawn eligible on the next loop pass.
 
-When the target appears, the bot explicitly pings every active bounty holder for that card and rarity. Other user/role/everyone mentions remain disabled by default. A matching spawn remains claimable for 10 minutes and is then removed from Discord; ordinary spawns remain for 5 minutes. There is still one active spawn per server, so a waiting 10-minute bounty spawn delays the next spawn rather than being replaced halfway through. The cleanup loop checks about every 5 seconds. If Discord denies message access/removal, the expired database entry is still removed and cannot be claimed.
+The same player cannot successfully claim two cards in a row in the same server. Another player's successful claim unlocks their next claim. Failed claims, sales, trades, and expiry do not reset this rule. The last claimant survives restarts.
 
-Anyone can claim a bounty spawn. The user's bounty clears only when that user successfully CLAIMS the exact target; an expired target, another player's claim, gifts or trades do not clear it. It stays active and continues boosting until then or until replaced. A bounty does not bypass the consecutive-claim restriction. Bounties apply to matching /spawnrigged spawns for notification and lifetime as well, but the chosen rigged pair remains fixed.
+Claim rewards:
 
-Bounty state is saved in the bounties database table and included in /backup snapshots. It survives restart provided the database is on persistent storage. Matching players are notified in batches when necessary to respect message/mention limits.
+- First discovery of a base card: 1,000 chudlets.
+- Each newly reached five-copy milestone for that base card: 1,000 chudlets. Previously rewarded milestones do not pay again.
+- Owning all current base rarities of one card: 5,000 chudlets once per base card.
+- Completing a configured named set: 10,000 chudlets once per set.
 
-To install, replace ONLY bot.py in your GitHub repository and deploy the latest commit. Keep the existing database, volume, DATA_DIR, economy.py and customized JSON files. No new dependencies or Dockerfile changes are needed. Download /backup before deploying. Previous tracking features and public replies remain enabled.
+Milestones use currently held copies when a card is claimed. Discoveries and paid reward history are saved independently of current ownership.
 
-Seven new bounty tests and the nine tracking/claim tests passed (16 focused checks): exact-pair weights, non-stacking and server isolation, intentional user mentions, 10/5-minute lifetimes, replacing bounties, successful-owner-only clearing, claim restrictions, expiry cleanup and database persistence. Live Discord notification delivery depends on your server permissions and members' notification settings.
+## Cards, searches, and tracking
 
-## Latest update: tracking, alternating claims and public replies
+- `/collection [member] [page]`: list individual card copies and IDs; defaults to your collection.
+- `/collectionlocked [member] [page]`: show only locked copies.
+- `/collectionunlocked [member] [page]`: show only unlocked copies.
+- `/view card_id`: show a card's image, owner, rarity, modifiers, and artist credit.
+- `/collectionsearch [card] [rarity] [page]`: search your collection by card name or exact item ID, optionally filtering rarity.
+- `/cardsearch [card] [rarity] [page]`: search collections in this server and show owners.
+- `/list [page]`: show owned base cards above unowned cards, with rarity copy counts.
+- `/itemtrack [page]`: show owned and missing collectible base cards with copy counts.
+- `/raritytrack card`: show owned, missing, and retired rarities for one base card.
+- `/settrack set [page]`: show owned and missing members of a named set.
+- `/sets [page]`: show named-set progress and collect any unpaid completion bonuses.
 
-Update bot.py in GitHub with this release, then deploy the latest commit. Your economy.py, custom items.json, sets.json, draw_pool.json, rarity odds, prices and existing database are preserved. No additional dependency or Dockerfile change is required. Keep the existing persistent volume and DATA_DIR; download a backup before redeploying. If your bot has no persistent storage, a code deployment can still erase its local data.
+Trackers use current ownership. Any rarity counts toward owning a base card or named-set member. Modifiers do not add required rarities. Tracking commands themselves do not award currency, except `/sets`, which checks unpaid set rewards.
 
-/settrack set:ocean shows your owned and missing cards for that configured set, distinct-card completion (for example 3/5), counts for each owned card and total copies. Choose the set from autocomplete. Any rarity counts toward set ownership. Add page:2 for longer sets. This command only reads progress; use /sets to collect any completion rewards on already owned sets.
+Locked cards display a lock beside their IDs in collection/search indexing. Favourites display a heart. `/list` marks rarity groups containing locked or favourite copies. Holographic, Inverted, Glitch, and flipped variants display a sparkle in variant listings and spawns.
 
-/raritytrack card:Seadweller shows the current variants you own, how many copies of each, missing variants, and the number of distinct owned variants. Choose a card from autocomplete. Retired variants are listed separately and do not count toward the current rarity target. This tracker gives no chudlets.
+## Trading and gifting
 
-/itemtrack shows every known collectible card you own and are missing, with copy counts and a distinct-item completion total. Owned items are above missing items. Any rarity counts as owning the base card. Add page:2 etc. for more results. This tracks collectible cards, not purchased shop rewards; /inventory still lists shop purchases. Retired saved card definitions can appear in the tracker too. All trackers reflect this server and the user running the command at that moment; they do not auto-refresh old messages.
+`/trade member give_id want_id` offers one owned copy for another player's copy. The recipient must accept within two minutes. Ownership is checked again when accepted. Each participant receives a 100-chudlet trade bonus, plus any newly completed set rewards. Incoming traded cards are recorded as discovered.
 
-After someone successfully claims a spawn, they must wait for another player to successfully claim in the SAME server before claiming again. The exact rejection is:
+`/givecard card_id user` transfers one card to another human player. It checks completion rewards for the recipient and records discovery. It does not give the 100-chudlet trade bonus.
 
-Users can't claim two cards in a row!
+Rarities, flips, ADMIN, and custom overlays stay with the card during transfers. Favourites and featured-profile selections clear when the selected copy changes ownership or is deleted.
 
-Blocked attempts leave the spawn available and grant no cards or currency. Failed attempts, expired spawns, trades, gifts, sales and new spawns do not reset the last successful claimant. Another server has its own claimant. This applies to ordinary and manually rigged spawns. The last claimant is stored in a new claim_turns table and survives restart/backup/restore. The first successful claim after installing this release establishes the initial claimant; old ownership is not guessed as claim history.
+## Selling and card ID reuse
 
-All previously ephemeral command replies, errors, confirmations and followups are now PUBLIC in the channel. This includes balances, inventories, collection views, shop purchases, admin currency adjustments and /backup attachments. The backup ZIP can therefore be downloaded by channel viewers; use an admin-only channel for database exports if you want restricted access. All-server export still requires the bot application owner/team, and administrative commands still require Administrator permission. Public buttons and shop menus still only accept actions from the original player or designated trade recipient. Previously sent ephemeral messages do not change retroactively.
+- `/sell card_id`: sell a single copy after confirmation.
+- `/sellall`: sell all unlocked copies after confirmation, including last copies.
+- `/sellalltype card [rarity] [sell_last]`: sell matching unlocked cards. `sell_last` defaults to `False`, retaining a copy of each matching base-card/rarity pair. Set it to `True` to allow selling those last copies.
+- `/selllock card_id`: toggle protection against `/sellall` and `/sellalltype`.
 
-Run the focused checks with:
+Sell locks apply to bulk sales. A locked card can still be sold individually, traded, gifted, or auctioned.
 
-    python -m unittest test_tracking.py -v
+A card's NPC sell value is its configured rarity price, or `sell_value` fallback, plus **1,500 chudlets per modifier**. Horizontal flip, vertical flip, ADMIN, tall overlay, and wide overlay each count separately. Base rarity is not a modifier.
 
-Nine focused tests passed: tracker ownership/copy counts and server isolation, missing variants, retired variant display, invalid choices, autocomplete, public replies, exact claim error/no reward, concurrent claims, and persistence after database reopen. Live Discord checks still require your bot token/server. test_bot.py is retained from the uploaded project and may contain old demo names/rarity expectations; the focused tests use isolated test data.
+Example: a base sell value of 150 with ADMIN and both flips sells for 4,650 chudlets before the Mass Credit bonus.
 
-The earlier README sections below describe previous releases. Their references to private/ephemeral replies are superseded by this update.
+The Mass Credit sale bonus is `floor(Mass Credit / 10)` per card sold. It is added after modifier bonuses. Bulk sales apply both bonuses to each eligible copy. Single-sale confirmations last 60 seconds; bulk confirmations also expire after 60 seconds.
 
-# Image collector bot with chudlets
+New claims and card-shop purchases fill the lowest vacant positive historical card ID before allocating a higher ID. This also fills older gaps. Auction escrow reserves its card IDs. An ID reused after a sale belongs to the newly generated copy, which can be a different card and rarity. Existing copies keep their IDs.
 
-## Latest update: currency transfers, card sets, drawing prompts, 10 variants
+## Player market
 
-Upload bot.py, economy.py, Dockerfile, sets.json and draw_pool.json from this release. Keep your customized items.json. If you already have sets.json or draw_pool.json from this release, preserve your custom contents too. The supplied two new JSON files are empty lists so no fabricated card sets or OC prompts are enabled. Keep your volume and DATA_DIR unchanged. Run /backup and download it before deploying. If you still have no persistent storage, back up the currently running deployment before replacing it.
+`/ahsell card_id price` lists an owned copy at a player-chosen price. The card leaves the collection and stays in auction escrow with its ID and modifiers reserved.
 
-### /ctrade number user
+`/ah [page]` shows listings. Select a listing to buy it or, as its seller, cancel and return the card. A purchase pays the seller, transfers the card, and checks the buyer's completion rewards. A seller cannot buy their own listing.
 
-Example: /ctrade number:500 user:@Alex transfers 500 of YOUR chudlets to Alex in this server. Any human player can use it; no admin permission is required. It cannot transfer to yourself or a bot, send zero/negative amounts, or overdraw your account. Transfers have no fee, do not create new currency, and do not award the card-trade bonus. A repeated Discord interaction cannot debit twice. Both sides and the transfer log are saved atomically. Amount limit: 1–1,000,000,000.
+Auction prices are set manually; the 1,500-per-modifier NPC sale bonus does not change a listing's price. Auction listings are saved across restarts; interactive menus must be reopened afterward.
 
-### Card sets, 10,000 chudlets per completed set
+## Currency and shops
 
-Edit sets.json to define your set IDs and display names:
+- `/balance`: show your chudlet balance.
+- `/ctrade number user`: transfer your chudlets to another human player without a fee. Transfers cannot overdraw your balance.
+- `/cardshop`: open the collectible-card shop. Choose a card and rarity, then Buy. Card choices paginate when needed. Only the menu owner can operate it; it expires after three minutes.
+- `/shop`: buy configured art rewards.
+- `/inventory [page]`: list purchased art rewards and redemption IDs.
+- `/use-item item_id`: redeem a purchased art reward and create a receipt.
+- `/receipt item_id`: display your saved redemption receipt again.
 
-```json
-[
-  {"id": "ocean", "name": "Ocean Set"},
-  {"id": "halloween", "name": "Halloween Set"}
-]
+Card-shop copies cost five times the configured base-rarity sell value. They always have no modifiers. Modifier sale bonuses do not raise shop prices. Purchases count toward collection and completion tracking and may award unpaid completion bonuses. They do not grant claim milestones, first-claim rewards, or trade bonuses, and do not clear bounties or alter claim turns.
+
+Current art rewards:
+
+- FREE YCH: 15,000 chudlets.
+- FREE ON BASE CUSTOM: 20,000 chudlets.
+- FREE OFF BASE CUSTOM: 40,000 chudlets.
+- FREE CHARACTER: 100,000 chudlets.
+- HEADSHOT COMMISSION: 100,000 chudlets.
+- FULLBODY COMMISSION: 250,000 chudlets.
+
+Reward products and prices are configured in `SHOP` in `economy.py`. Card-shop payment receipts prevent the same interaction from charging twice. Art reward redemption is recorded so an item cannot be redeemed repeatedly.
+
+## Drawing prompts and Mass Credit
+
+`/draw` picks an image from `draw_pool.json` and asks for a coloured drawing for 7,500 chudlets. There is a ten-second per-user cooldown.
+
+`/mass` picks from the same pool and asks for at least ten doodles at any quality, paying 10 chudlets per doodle after approval. Submit the completed ZIP to the owner. There is a ten-second per-user cooldown.
+
+`/massown` asks for at least ten doodles of your own OC at any quality, paying 1 chudlet per doodle after approval. Submit a screenshot to the owner.
+
+These commands post instructions only. Artwork approval and payments are manual. Administrators use `/cgive` for chudlets and `/mcgive` for Mass Credit. Mass Credit is a separate saved balance; every ten credits adds one chudlet per sold card.
+
+## Profiles and favourites
+
+`/profile [user]` shows chudlets, Mass Credit, rarest owned card, and enabled customizations.
+
+`/profilecustomize [accentcolour] [footerimage] [favoritecard] [setcompletion] [raritycompletion]` changes any supplied options; omitted options retain their saved values.
+
+- `accentcolour`: six-digit hex colour, for example `#64D545`. Use `reset` to clear it.
+- `footerimage`: HTTP(S) image URL shown as the profile embed image. Use `reset` to clear it.
+- `favoritecard`: an owned card ID to feature. Use `0` to clear it.
+- `setcompletion`: show or hide currently completed named sets.
+- `raritycompletion`: show or hide cards for which you currently own every base rarity.
+
+`/favorite card_id` toggles a cosmetic heart on an owned card. It does not lock the card or change its price. Profile settings and favourites are server-specific.
+
+## Bounties
+
+`/bountyset card rarity` saves one active bounty per player per server. A new bounty replaces the previous one. Choose a spawnable card and rarity; zero-weight targets are rejected.
+
+The exact pair gets 1.5 times its usual selection weight in that server. Multiple players targeting the same pair share one boost. Other rarities of that card are unaffected. Selection remains weighted, so a bounty does not guarantee a spawn.
+
+When the pair appears, its bounty holders are pinged and it remains claimable for ten minutes. Anyone may claim it. A player's bounty clears only when that player successfully claims the matching pair. Gifts, trades, purchases, another player's claim, and expiry leave their bounty active. Claim-turn restrictions still apply. Matching rigged spawns receive the notification and lifetime behavior too.
+
+## Rarities and modifiers
+
+Current base rarity weights in `economy.py`:
+
+```text
+normal        50
+silver        11
+gold           7
+emerald        6
+diamond        5.5
+obsidian       5
+copper         4.5
+ruby           4
+sapphire       3.5
+holographic    2
+inverted       1.5
+glitch         1
 ```
 
-Then edit each relevant object in YOUR existing items.json. Add a sets field next to weight or sell_value, preserving the commas:
+These are relative weights, not percentages. The current total is 101. Bounties and filters affect the final selection pool. Base rarity art uses `rarity_images` and falls back to `image_url`; the bot does not generate the base rarity artwork.
 
-```json
-"sets": ["ocean"]
-```
+### Flips
 
-To attach one card to two sets:
+Horizontal flip mirrors left and right, reflecting across the vertical Y-axis. Its random chance is 1% per spawn.
 
-```json
-"sets": ["ocean", "halloween"]
-```
+Vertical flip mirrors top and bottom, reflecting across the horizontal X-axis. Its random chance is 0.1% per spawn.
 
-For example, add sets:["ocean"] to both your existing seadweller and mermaid entries to make the Ocean Set require those two base cards. Use the actual IDs of your own sets and cards. Every set tag must be defined in sets.json. A card without the sets field belongs to no sets. An empty set gives no reward. A retired card with weight 0 remains a requirement if still assigned; remove its set tag if you want it excluded.
+Rolls are independent and apply to every rarity. Both together have a 0.001% chance and rotate the final image 180 degrees. The bot performs the transforms; no separately flipped art is needed.
 
-Players must own at least one copy of EVERY assigned base card simultaneously. Any rarity counts. Claims and incoming card trades check completion automatically. /sets shows owned/missing counts and grants any previously unclaimed completion rewards, including sets added after cards were collected. Each set pays 10,000 chudlets once per player per server. Selling/trading away cards and rebuilding a set does not pay again. Multiple completed sets can pay together. Keep set IDs stable; changing an ID creates a new reward identity. Editing membership does not reset already paid rewards.
+Rigged commands accept `horizontal_flip` and `vertical_flip`: `True` forces that flip, `False` prevents it, and omission keeps the normal random chance.
 
-This is separate from the 5000-chudlet bonus for collecting every rarity of one base card.
+### ADMIN
 
-### /draw, a separate random pool with no automatic payout
+ADMIN can be created only through `/spawnrigged` or `/spawnspamrigged`, using `admin:True`. It is never randomly rolled or sold by `/cardshop`.
 
-Edit draw_pool.json like this, replacing the sample links with your real direct HTTPS image URLs:
+It supports only `normal`, `holographic`, `glitch` (Glitched), and `inverted`. Other explicit rarity combinations are rejected. ADMIN spam without a selected rarity restricts the pool to those four.
 
-```json
-[
-  {"image_url": "https://your-image-host.example/oc-one.png"},
-  {"image_url": "https://your-image-host.example/oc-two.png"}
-]
-```
+The supplied `admin_gradient.png` is stretched to the rarity image and applied at full-opacity Multiply. ADMIN recolours existing pixels and preserves the source image's dimensions and alpha. It adds no opaque pixels outside the original artwork.
 
-Each entry is equally likely. Entries may repeat on later rolls. /draw posts the image with this exact text:
+### Custom tall and wide overlays
 
-Draw this OC (Coloured, any) for 7500 Chudlets!
-
-Using /draw never grants chudlets, awards no card, and charges nothing. A 10-second per-user cooldown limits repeated prompts. You approve completed artwork and award 7500 manually with /cgive. The empty default pool gives an explanatory message until you add OC links. Draw images are independent of collectible card images.
-
-### Ten added variants and their odds
-
-The new mutually exclusive percentages are:
-
-normal 74%; silver 10%; gold 5%; emerald 3%; diamond 2%; obsidian 1%; bronze 2%; copper 1%; rose_quartz 0.5%; ruby 0.4%; sapphire 0.3%; amethyst 0.25%; pearl 0.2%; holographic 0.15%; rainbow 0.12%; glitch 0.08%.
-
-They total 100%. These are defaults chosen for the new variants. You can edit RARITIES in economy.py to change the weights. The values are relative weights; when the sum is 100 they equal percentages.
-
-The new keys are bronze, copper, rose_quartz, ruby, sapphire, amethyst, pearl, holographic, rainbow and glitch. Add them to each card's existing rarity_images object to supply separate artwork:
-
-```json
-"bronze": "https://your-image-host.example/card-bronze.png",
-"copper": "https://your-image-host.example/card-copper.png",
-"rose_quartz": "https://your-image-host.example/card-rose-quartz.png",
-"ruby": "https://your-image-host.example/card-ruby.png",
-"sapphire": "https://your-image-host.example/card-sapphire.png",
-"amethyst": "https://your-image-host.example/card-amethyst.png",
-"pearl": "https://your-image-host.example/card-pearl.png",
-"holographic": "https://your-image-host.example/card-holographic.png",
-"rainbow": "https://your-image-host.example/card-rainbow.png",
-"glitch": "https://your-image-host.example/card-glitch.png"
-```
-
-This snippet is fields to merge inside rarity_images, not a complete replacement items.json. Keep your normal/silver/gold/emerald/diamond/obsidian links. Missing variant artwork falls back to image_url. Artwork is not generated by this update. Add optional new keys to rarity_sell_values to give them different sale prices; otherwise sell_value applies.
-
-/list, /collection, /view, /sell, /spawnrigged and card trades recognize all 16 variants. The 5000-chudlet rarity completion bonus now requires all 16. Players already paid for the old six-variant set keep their reward and are not paid again for the same base card. Currency transfers and named sets use separate tables; your existing saved data is migrated without resetting it.
-
-New local tests cover transfer conservation, overdraft rejection, duplicate transfer handling, server isolation, set claims/trades/recompletion, existing-card completion, empty and invalid sets, draw behavior with zero currency payout, rarity odds and image overrides. All 21 local tests passed. Live Discord verification still requires your deployed bot.
-
-## New admin tools and downloadable data
-
-Upload the updated bot.py and economy.py to your existing repository. Keep your own items.json, volume, DATA_DIR and Discord token. Dockerfile and requirements.txt are unchanged from the previous release. The existing database gains an audit table without removing saved data. Redeploy and allow slash commands to sync. If TEST_GUILD_ID is set, try these commands in that server.
-
-IMPORTANT: If your current bot still has no persistent volume, deploying this update can erase its current local database before the new /backup command is available. Download a snapshot from the current deployment first, using the earlier terminal backup procedure. This update cannot recover a database that was already lost. /backup creates downloadable snapshots; it does not replace persistent storage.
-
-All new commands require Discord Administrator permission in this server. Both command visibility defaults and runtime checks enforce this.
-
-- /cgive member:@Player amount:1000 adds 1000 chudlets to that player's balance in this server.
-- /ctake member:@Player amount:500 removes up to 500. If they have less, their balance becomes zero; it never becomes negative. Amounts must be whole numbers from 1 to 1,000,000,000. Bot accounts cannot receive adjustments. Adjustments record the admin, player, amount, resulting balance, server and time in the database. Retrying the same Discord interaction cannot apply an adjustment twice.
-- /spawnrigged card:moon_cat rarity:gold spawns the selected card and rarity in your configured spawn channel. Select the card using autocomplete; normal is the default rarity. Cards with weight 0 can also be manually spawned. It refuses to replace an active spawn. Anyone can Claim it, and the usual rewards apply. The next scheduled spawn is five minutes later.
-- /backup defaults to This server. It produces an ephemeral attachment visible to the requesting admin. Click the ZIP attachment to download. It contains flags.db, user-data.json and RESTORE.txt. It captures collections, chudlets, purchases/redemptions, rewards history, admin adjustments, server spawn settings and saved card definitions. It does not include the bot token, .env, downloaded artwork, or pending in-memory trade offers. Images are saved as URLs.
-- /backup scope:All servers additionally checks that the requester owns the Discord application or belongs to its owning team. An ordinary server admin cannot download another server's users. Application ownership is checked through Discord, not through a guessed username. The requester must also have Administrator permission in the server where they invoke the command.
-
-Backups are consistent SQLite snapshots, including committed WAL changes. They are created in temporary storage and attached privately. The command has a 60-second per-user cooldown. If the ZIP exceeds Discord's upload limit, it reports that limitation; use your host's file-transfer tools instead. Download promptly and keep a private copy. Data after the snapshot time is not included. Do not commit user-data ZIPs or flags.db to GitHub.
-
-Restoring: pause the bot first, keep a copy of its current database, extract flags.db from the ZIP, and copy it into DATA_DIR as flags.db while the bot is stopped. Use the established volume restore workflow with the temporary sleep infinity start command. A single-server export replaces the destination with only that server's data; use All servers for a full multi-server restore. Restoring an older snapshot rolls balances and redemptions back to that point. Never overwrite an active SQLite database.
-
-The tests now include permissions, capped and idempotent chudlet adjustments, chosen spawns, server isolation, ZIP contents, integrity checks, WAL snapshot restoration, and denial of full exports to non-owners. 21 local tests passed. Live Discord tests still require your token/server.
-
-## Update your existing bot
-
-1. Extract this ZIP.
-2. In your existing GitHub repository choose Add file > Upload files.
-3. Replace bot.py, Dockerfile, requirements.txt and README.md, and add economy.py. Keep these at the repository root. test_bot.py is optional to upload.
-4. KEEP YOUR CUSTOM items.json. Add the new fields shown below to your existing entries. The items.json inside this ZIP is only a two-card demo. Replacing your customized file with it would change your spawn pool.
-5. Commit changes. In Railway open your bot service, press Ctrl+K (Cmd+K on Mac), and choose Deploy Latest Commit if autodeploy has not started.
-6. Keep your existing DISCORD_TOKEN, DATA_DIR=/data, TEST_GUILD_ID if set, and volume mounted at /data. Message Content Intent must remain enabled in the Discord Developer Portal. Run only one bot replica.
-7. Check deployment logs. Old cards are automatically migrated as normal rarity. The flags.db filename stays unchanged. Existing collections and trades remain compatible; pending offers from before restart expire.
-
-No chudlets are paid retrospectively for pre-update cards. Existing holdings seed first-card history and previous five-copy milestones. Your next spawn is scheduled no later than five minutes after this update, unless an older active spawn is still waiting to expire.
-
-## Commands
-
-/list [page]: shows all known base cards. Owned cards appear in the upper row/section, missing cards below it. Each owned card shows counts for all 16 rarities. Use page:2, page:3 etc. when needed. Each page shows up to three owned and three missing cards.
-/collection [member] [page]: individual card IDs with rarity labels.
-/view card_id: displays that card's rarity-specific image.
-/balance: your chudlets.
-/sell card_id: quotes that card's price and asks for confirmation. Selling removes that copy and credits chudlets. It does not transfer the card to another player.
-/trade member give_id want_id: offer a one-for-one exchange. The other player must accept. Both get 100 chudlets on successful completion.
-/shop: menu containing FREE YCH (5000), FREE ON BASE CUSTOM (10000), FREE OFF BASE CUSTOM (30000). Selecting a reward immediately buys one copy if you can afford it.
-/inventory [page]: purchased items and their IDs, including redeemed entries.
-/use-item item_id: consumes one purchased item and posts a receipt asking the player to ping @jonathan.sims with their claim. Use the purchase ID from /inventory, not a collectible card ID.
-/receipt item_id: redisplays your saved redemption receipt without consuming another item.
-/setup channel: choose the spawn channel, Manage Server required.
-/spawn: manually test one spawn, Manage Server required; refuses while another is active.
-
-The receipt stores a unique purchase number, server and owner. It does not automatically fulfill artwork or send a DM. The @jonathan.sims text prompts the player to select/ping that account themselves; no account ID is guessed. If posting a redeemed receipt fails, use /receipt to recover it.
-
-## Claiming and chudlet rewards
-
-Send the entire message Claim in the spawn channel. claim and CLAIM also work. First valid claim wins. Bots and webhooks cannot collect. Each spawn lasts five minutes. A replacement appears every five minutes, with a five-second scheduling check and possible network delays. Offline time is not backfilled.
-
-- First discovery of a base card: 1000 chudlets. A new rarity of an already discovered base card is a duplicate for this particular bonus. Selling or trading it away does not reset discovery history. Acquiring a card through trade records it as discovered but awards only the trade reward, not the first-claim reward.
-- Successful trade: 100 chudlets to each participant. Failed, expired or replayed acceptances do not pay. Repeated legitimate trades each pay, as configured by this rule.
-- Five-copy milestone: 1000 when a claim brings current holdings of that base card to 5, 10, 15 etc. All rarities count toward the same total. Each milestone pays at most once per player and base card. Selling/trading copies away and returning to a previously paid milestone does not pay again. Trades never trigger this reward. If a trade brings you to five and the next claim is your sixth, no five-copy payout occurs.
-- Full rarity set: 5000 once per player and base card when they own every one of the 16 configured rarities together. A claim or incoming trade can complete the set. Selling and rebuilding the set does not repeat the payout.
-
-Rewards can stack. All balances, inventories, history and collections are per server. Selling cards never removes earned chudlets or prior discovery records. Keep volume backups enabled on your host.
-
-## Rarity rolls
-
-A base card is chosen using its weight. A separate rarity roll then chooses the 16 rarity weights listed at the top of this README. These are mutually exclusive outcomes totaling 100%. All 16 variants share one base card ID but each collected copy stores its own rarity.
-
-## Customize cards, sale prices and images
-
-Edit items.json in GitHub using the pencil button. Keep your existing IDs unchanged after people collect them. Here is a complete example for ONE card; replace every example URL with your actual direct HTTPS image link:
-
-```json
-[
-  {
-    "id": "moon_cat",
-    "name": "Moon Cat",
-    "image_url": "https://your-image-host.example/moon-cat-normal.png",
-    "weight": 10,
-    "sell_value": 100,
-    "rarity_sell_values": {
-      "silver": 200,
-      "gold": 400,
-      "emerald": 600,
-      "diamond": 800,
-      "obsidian": 1000
-    },
-    "rarity_images": {
-      "normal": "https://your-image-host.example/moon-cat-normal.png",
-      "silver": "https://your-image-host.example/moon-cat-silver.png",
-      "gold": "https://your-image-host.example/moon-cat-gold.png",
-      "emerald": "https://your-image-host.example/moon-cat-emerald.png",
-      "diamond": "https://your-image-host.example/moon-cat-diamond.png",
-      "obsidian": "https://your-image-host.example/moon-cat-obsidian.png"
-    }
-  }
-]
-```
-
-id is permanent; name is displayed. image_url is the default/normal image. Upload images to a host such as File Garden and use URLs that display the image itself without a login. Discord attachment URLs can expire.
-
-weight controls base-card spawn frequency relative to other entries. Set weight to 0 to retire a card. Its old copies remain viewable; /list includes retired cards too. At least one item must have a positive weight.
-
-sell_value is your base sale price in chudlets, used for normal cards and rarities without a specific override. rarity_sell_values optionally overrides it per rarity. Prices are nonnegative integers. Example: sell_value:250 and a gold override of 1000 means a normal copy sells for 250 and a gold copy for 1000. Edit these values to choose your own prices. Old entries without prices default to 100.
-
-rarity_images lets you provide up to 16 different images for the same card. If you omit a rarity's image, it uses image_url until you add artwork. The two demo cards supplied in the ZIP reuse their normal image in every slot because custom rarity artwork has not been supplied. Replace each slot with your variant image URL for distinct artwork. The rarity label and rarity tracking still work while images are shared.
-
-To add more cards, add another object inside the outer square brackets, separated with a comma. No comma after the final object. Use double quotes and no comments. Keep IDs unique. Names and IDs must be at most 80 characters.
-
-Commit changes and redeploy for JSON edits to load. Changing a display name/image updates existing cards too. Removing an entry keeps its last definition in the saved database for old cards; use weight 0 for an explicitly retired card.
-
-## Customize the shop
-
-In economy.py, SHOP contains product IDs, labels and prices. The supplied three entries match the requested prices. Editing prices affects future purchases. Keep product IDs unchanged so already purchased items remain redeemable. Do not remove product definitions that people have purchased.
-
-To alter rewards, edit the relevant amounts in award_claim, exchange and set_bonus in economy.py. Back up your data before changing reward/migration logic.
-
-## First setup or local run
-
-Create an application at https://discord.com/developers/applications. Generate its bot token and keep it private. Enable Message Content Intent on Bot > Privileged Gateway Intents. Invite with bot and applications.commands scopes; allow View Channels, Send Messages, Embed Links, Read Message History.
-
-For Railway, put bot.py, economy.py, items.json, Dockerfile and requirements.txt in the GitHub repository root. Create a Railway service from it, set DISCORD_TOKEN and DATA_DIR=/data, attach a volume at /data, deploy. No web domain or HTTP healthcheck is needed. Check pricing at https://railway.com/pricing. Run one replica. Disable sleep/serverless mode if enabled.
-
-Optionally set TEST_GUILD_ID to your server ID for immediate test-server command registration. In Discord turn on Settings > Advanced > Developer Mode, right-click the server, Copy Server ID. Leave TEST_GUILD_ID in place while testing; global commands may take time to appear without it.
-
-For a local test, install Python 3.12, open a terminal in this folder:
-
-    python -m venv .venv
-
-Activate on Windows:
-
-    .venv\Scripts\activate
-
-Activate on macOS/Linux:
-
-    source .venv/bin/activate
-
-Then:
-
-    python -m pip install -r requirements.txt
-
-Copy .env.example to .env, set DISCORD_TOKEN, keep local DATA_DIR=./data. Run:
-
-    python bot.py
-
-Closing the terminal stops the bot. Do not run locally alongside your hosted bot.
-
-## Checks and troubleshooting
-
-Run included tests with:
-
-    python -m unittest test_bot.py -v
-
-The suite checks migration, claim bonuses, milestone repetition, full rarity sets, sales, insufficient balances, shop redemption ownership/replays, trade rewards, concurrent claims, listing order, variant labels and spawn timing. These are local database/mock checks. A Discord token/server is required for live interaction testing.
-
-Claim does nothing or error 4014: check Message Content Intent in the portal and restart. Check the channel and expiry. Blank image: open its URL in a private browser window and ensure it is an image. JSON error: check commas, double quotes and field types. Data missing: keep DATA_DIR and volume mount both at /data. New commands missing: check logs and TEST_GUILD_ID. If economy.py is missing in logs, upload it and the updated Dockerfile.
-
-### Mass doodles and Mass Credit
-
-- `/mass` shows a random OC from `draw_pool.json` and instructions for batches of at least 10 doodles at 10 chudlets per doodle. `/massown` provides the own-OC variant at 1 chudlet per doodle. **Submissions and rewards are reviewed and awarded manually** using `/cgive`; these commands do not automatically issue currency.
-- `/mcgive member amount` and `/mctake member amount` require administrator permission. Mass Credit is stored per server and player in SQLite and cannot fall below zero.
-- Each full 10 Mass Credit grants +1 chudlet **per card sold**, including when using `/sellall`. `/profile` shows Mass Credit, Chudlets, and the user's rarest card.
-- `/shop` includes **FREE CHARACTER** for 100,000 chudlets. Redeem using `/use-item`, then choose a character from https://toyhou.se/jsims/characters/folder:5635645 . Requests may be declined; the owner can arrange an alternate selection or refund manually with `/cgive`.
-- After restarting the bot, Discord slash commands are synced by the existing startup procedure.
-
-## New commands and recycled IDs
-
-- `/collectionsearch card:<name> rarity:<optional> page:<optional>` searches your own collection.
-- `/cardsearch card:<name> rarity:<optional> page:<optional>` searches all current collections in this server and displays owners.
-- `/selllock card_id:<number>` toggles protection for a card against `/sellall` and `/sellalltype`. `/sell` and `/ahsell` remain deliberate individual actions and are allowed.
-- `/sellalltype card:<name> rarity:<optional> sell_last:<true/false>` proposes a bulk sale. By default, the last copy of each matching card-and-rarity combination is kept. To sell the last copies as well, set `sell_last:true`. Locks are respected. Confirmation is required.
-- `/ahsell card_id:<number> price:<number>` lists a card for sale, holding it in auction escrow. Listings persist in the SQLite database. `/ah page:<number>` shows up to 10 listings with a dropdown to inspect and buy, or to cancel your own listing. A sale pays the seller the advertised amount. Each listing retains its original card ID.
-- `/spawnspam` (Manage Server administrator) starts or restarts a five-minute period. The next spawn is due immediately; each successful claim schedules another spawn on the next spawn-loop tick (up to five seconds). The usual rule against the same person claiming two consecutive cards remains. An end announcement is posted in the spawn channel and usual scheduling resumes.
-
-Sold card IDs are stored in `recycled_ids` ordered by sale time and ID. The next claimed spawn or `/cardshop` purchase fills the lowest missing historical ID, with a newly selected card identity and rarity. If several IDs are sold together, they are queued ascending by ID. IDs are global for the bot, matching the preexisting `cards.id` SQLite design; a freed ID can be reused by a claim on another server. Purchased `/cardshop` cards also reuse vacant IDs. Auction escrow never releases the card ID to the recycle queue. New database tables are migrated automatically when the bot next starts.
-
-## Restoring the `/backup` ZIP
-
-`/backup` produces a ZIP containing `flags.db`, `user-data.json`, and `RESTORE.txt`. The SQLite `flags.db` contains the actual bot state; `user-data.json` is readable inspection data, and must not be used as a substitute for the database.
-
-1. Download the backup ZIP to your computer and keep a separate safety copy.
-2. Stop the bot process on your host. Do **not** restore while it is running.
-3. Extract `flags.db` from the ZIP.
-4. Find the bot's `DATA_DIR` (default `./data` relative to the running bot's working directory). Back up the current `DATA_DIR/flags.db` first, plus any `flags.db-wal` and `flags.db-shm` if they exist.
-5. Replace `DATA_DIR/flags.db` with the extracted `flags.db` while the bot remains stopped. If old `flags.db-wal` and `flags.db-shm` exist from the prior database, remove or archive those files so they are not used with the restored snapshot.
-6. Restart the bot. The schema migration runs automatically.
-
-**Important:** Use an **All servers** backup if you want to replace an existing database for a multi-server bot. A **This server** backup contains only one server's records; restoring that ZIP as the entire database will erase other servers' data. Backups contain economy data and card definitions saved in the DB, but not the Discord token or your `items.json`, `sets.json`, and `draw_pool.json` source files. Restore those project files separately if needed. Protect the backup: the command posts it publicly in the channel. If running in a container, restore the file inside the persistent data volume, rather than replacing only a disposable container file.
-
-
-### Filling deleted card ID gaps
-New claimed cards and `/cardshop` purchases now use the lowest vacant positive card ID from the bot's historical ID range before assigning a higher number. This also repairs gaps from manual deletions and older versions, even when no sale was recorded. IDs held by auction listings are reserved. Reused IDs get the new card's identity and rarity. Existing owned cards keep their IDs. The bot needs the existing `flags.db` preserved on its Railway `/data` volume; replacing the database loses its historical high-water mark.
-
-### `/spawnspamrigged` (administrator)
-`/spawnspamrigged rarity:<optional> card:<optional> set:<optional>` starts a five-minute spawnspam session. Any omitted filter is unrestricted. Choosing a set limits the pool to that set's cards; choosing a card limits it to that card; choosing a rarity forces that rarity. All supplied filters must match. The bot spawns a matching card as soon as a previous card is claimed and announces when the session ends. Running `/spawnspam` resets the session to unrestricted spawns; running `/spawnspamrigged` again replaces the filters and restarts five minutes. Sessions and filters are stored in the existing persistent database (`DATA_DIR/flags.db`).
-
-## Spawn-only flip modifiers
-
-Every spawned card first receives its normal base rarity. Two separate modifier rolls then apply:
-
-- **Horizontal Flip:** 1% chance (left/right mirror).
-- **Vertical Flip:** 0.1% chance (top/bottom mirror).
-
-The two rolls are independent, so both can appear together (0.001% chance, approximately 1 in 100,000 spawns). They work on every base rarity, including manual and rigged spawns. The bot downloads the configured rarity image and flips it automatically using Pillow. No flipped images need to be uploaded. A flip is saved on the card and is preserved when transferring or auctioning it. `/view` re-creates the flipped image.
-
-`/cardshop` always sells unflipped cards, with no chance to acquire either flip modifier. Players can still obtain flipped cards through trades, gifts, or auction listings.
-
-Note: This feature needs outbound access to the image URL. If fetching an image fails, the bot logs the failure and uses the original picture instead; the card's saved modifiers are retained. Existing card data is migrated in place with neither flip flag set. Back up `/data/flags.db` before deploying a changed database schema.
-
-### Rigged flip modifiers
-`/spawnrigged` and `/spawnspamrigged` accept optional `horizontal_flip` and `vertical_flip` Boolean options. `True` forces the modifier, `False` prevents it, and leaving it unspecified retains the normal random chance (1% horizontal and 0.1% vertical). Both can be `True` simultaneously. `/spawnspamrigged` persists its flip settings during its five-minute session across restarts. `/cardshop` continues to offer unflipped cards only.
-
-### Flip image orientation and troubleshooting
-
-- `vertical_flip:True` reflects the image across its horizontal X-axis (top becomes bottom).
-- `horizontal_flip:True` reflects across its vertical Y-axis (left becomes right).
-- Setting both rotates the image 180 degrees.
-- If the remote host blocks image downloads or sends a bad image, the bot displays an image-unavailable warning instead of pretending an unchanged picture has been flipped. The card keeps its flip flags; `/view` retries the image.
-
-
-/collectionlocked [member] [page] shows only locked cards.
-/collectionunlocked [member] [page] shows only unlocked cards.
-Locked copies display 🔒 beside their IDs in collections and searches; /list marks variants containing locked copies.
-
-/profilecustomize [accentcolour] [footerimage] [favoritecard] [setcompletion]
-All fields are optional and scoped to this server. Hex colours use six digits. Use reset for colour/image, and favoritecard:0 to clear the featured card. Footer images use Discord's full-width profile embed image. Set completion displays currently held card sets.
-/favorite card_id toggles a cosmetic heart. This does not lock the card or change its value. Favourites and featured-card selections clear when a copy is sold or transferred.
-✨ marks Holographic, Inverted, Glitch and any flipped card in spawns and listings.
-
-/profilecustomize raritycompletion:True shows cards for which you currently own every base rarity. Set False to hide it. Flips do not add required rarities. Omitted options keep their saved values.
-
-## ADMIN, artist credits and image overlays
-
-Use `/spawnrigged ... admin:True` or `/spawnspamrigged ... admin:True`.
-ADMIN is never randomly rolled. It supports only normal, holographic,
-glitch (Glitched), and inverted. With ADMIN spam and no selected rarity,
-the pool is restricted to those four. Unsupported combinations are rejected.
-ADMIN uses the supplied `admin_gradient.png` in Multiply mode at full opacity.
-The gradient stretches to the source image, with its original alpha preserved.
-Both image flips happen after every overlay. Modifiers stay with claimed,
-traded, gifted and auctioned cards. Existing saves migrate automatically.
-
-Every item in `items.json` now contains `"ARTIST:": "Unknown"`.
-Replace Unknown with the artist's name. Spawns and `/view` show
-`art by {artist}`. Restart the bot after changing configuration.
-
-Configure the two independent image modifiers in `modifiers.json`:
+Edit `modifiers.json` to customize two independent image-overlay slots:
 
 ```json
 {
@@ -398,19 +196,134 @@ Configure the two independent image modifiers in `modifiers.json`:
 }
 ```
 
-Use a local PNG path relative to the bot directory, or a public HTTPS image URL.
-The names are customizable. Chances range from 0 to 1; 0.01 means 1%.
-The supplied configuration has empty paths and zero chances, so add your own
-art first. Transparent PNGs preserve the visible card underneath.
-Tall and wide are independent overlays and can stack on any rarity and ADMIN.
-They can be forced with `tall:True` / `wide:True` in either rigged command.
-The tall and wide names identify your two artwork slots; they do not filter
-cards by aspect ratio. Overlays are centered at their native dimensions on a
-canvas large enough for both the card and overlay. Prepare overlay art at the
-intended card resolution, including any added transparent margins.
-Layer order: rarity image, ADMIN Multiply, tall overlay, wide overlay, flips.
-Rigged spam holds its chosen modifiers for the session. Regular spawn chances
-are rolled independently for each spawn. Shop purchases have no modifiers.
+Use a local image path relative to the bot directory or a public HTTPS image URL. A transparent PNG is recommended. `chance` ranges from 0 to 1; `0.01` means 1%. The supplied configuration has empty image paths and zero chances until you add artwork.
 
-Include `modifiers.json`, `admin_gradient.png`, and the `overlays` folder when
-uploading the updated bot. The Dockerfile includes them automatically.
+Both slots can stack with each other, flips, and ADMIN, on any supported base rarity. The names identify configurable slots; they do not automatically filter tall or wide cards by aspect ratio. ADMIN's own four-rarity restriction still applies whenever ADMIN is enabled.
+
+Overlay art is centered at native size on a canvas large enough for both the source and overlay. These overlays can add visible pixels and expand the image dimensions. Prepare artwork at the intended card resolution and include transparent margins if needed.
+
+Use `tall:True` or `wide:True` in rigged commands to force an overlay; a missing image configuration is rejected. `False` prevents that slot. When omitted, configured chances apply. Regular spawns roll independently per card. Rigged spam chooses the tall/wide modifiers when the session is configured and retains that selection throughout the session.
+
+Rendering order is base rarity image, ADMIN Multiply, tall overlay, wide overlay, then horizontal and vertical flips. Modifiers are saved on claims and preserved through gifts, trades, and auctions. `/view` renders the current configured artwork again.
+
+If downloading or transforming art fails, the bot does not substitute an unchanged image for a modified card. It keeps the modifiers and shows an image-unavailable message. Try `/view` again after fixing the image source.
+
+## Administrator commands
+
+These commands require Administrator permission:
+
+- `/cgive member amount`: add chudlets.
+- `/ctake member amount`: remove chudlets, stopping at zero.
+- `/mcgive member amount`: add Mass Credit.
+- `/mctake member amount`: remove Mass Credit, stopping at zero.
+- `/spawnrigged card [rarity] [horizontal_flip] [vertical_flip] [admin] [tall] [wide]`: spawn a selected card, defaulting to normal rarity. Explicitly selected archived/zero-weight cards can be spawned. An existing active spawn is not replaced.
+- `/spawnspam`: enable five minutes of random spawns that become eligible immediately after each successful claim. Clears rigged session filters.
+- `/spawnspamrigged [rarity] [card] [set] [horizontal_flip] [vertical_flip] [admin] [tall] [wide]`: enable five minutes of filtered spawn spam. Supplied filters must all match. Cards require positive spawn weight. Re-running it replaces the filters and restarts the five-minute timer.
+- `/backup [scope]`: download a consistent saved-data snapshot.
+
+Example ADMIN spawn:
+
+```text
+/spawnrigged card:Sea rarity:normal admin:True vertical_flip:True
+```
+
+Select the actual card from autocomplete. Spawn-spam sessions and rigged filters persist through restarts. Their expiry announcement is sent when the bot next processes the expired session. An already waiting spawn remains subject to its own expiry and claim rules.
+
+Currency amounts are positive whole numbers up to 1,000,000,000. Currency adjustments are recorded and protected against duplicate processing of the same interaction.
+
+## Configuration files
+
+### items.json
+
+A nonempty list of collectible definitions. Keep item IDs stable once cards are saved. Each entry supports:
+
+```json
+{
+  "id": "example_card",
+  "name": "Example Card",
+  "image_url": "https://your-host.example/card.png",
+  "ARTIST:": "Artist Name",
+  "weight": 10,
+  "sell_value": 100,
+  "rarity_images": {
+    "holographic": "https://your-host.example/card-holographic.png"
+  },
+  "rarity_sell_values": {
+    "holographic": 3000
+  },
+  "sets": ["example_set"]
+}
+```
+
+`ARTIST:` includes the colon in its key. All supplied definitions have this field, initially `Unknown`. Set the artist's name to show `art by Artist Name` on spawns and `/view`.
+
+IDs and names are limited to 80 characters. Artwork URLs must be public HTTPS links. Weights must be finite and nonnegative; zero excludes the item from the regular random pool. Prices must be nonnegative integers. Rarity keys must match the current names in `economy.py`.
+
+Current configuration controls prices for existing copies too. Archived definitions saved in the database can keep retired cards viewable. Restart after editing configuration.
+
+### sets.json
+
+Define set IDs and display names, then reference those IDs in each item's `sets` list:
+
+```json
+[
+  {"id": "example_set", "name": "Example Set"}
+]
+```
+
+Each named set requires all assigned base cards simultaneously, in any rarity. An empty set pays nothing. Keep set IDs stable because paid completion rewards are tracked by ID. A weight-zero card still assigned to a set remains a requirement.
+
+### draw_pool.json
+
+Shared by `/draw` and `/mass`. Entries are equally likely:
+
+```json
+[
+  {"image_url": "https://your-host.example/oc.png"}
+]
+```
+
+An empty list disables image prompts until you add art. This pool is separate from collectible card definitions.
+
+### Other files
+
+- `modifiers.json`: names, image paths/URLs, and random chances for tall/wide overlays.
+- `admin_gradient.png`: ADMIN Multiply gradient.
+- `overlays/`: local custom overlay assets included by Docker.
+- `economy.py`: base rarity weights, flip chances, art reward shop, saved-data operations, and reward logic.
+- `bot.py`: Discord commands, spawning, rendering, and sale-price calculation.
+- `requirements.txt`: Python dependencies.
+- `Dockerfile`: container build and startup.
+
+## Backups and restoration
+
+`/backup` defaults to this server and requires Administrator permission. `scope:all` additionally requires ownership of the Discord application or membership in its owning team. The command has a 60-second per-user cooldown.
+
+The ZIP contains `flags.db`, `user-data.json`, and `RESTORE.txt`. The database is the restorable state; JSON is readable inspection data. Snapshots include committed saved collections, balances, modifiers, auction listings, purchases, reward history, profiles, bounties, session settings, and archived card definitions.
+
+Backup attachments are publicly visible in the channel where the command runs. Use a restricted channel when appropriate. Some validation errors elsewhere in the bot are private; do not assume all replies are private or all are public.
+
+Backups exclude the token, `.env`, source/configuration files, downloaded image assets, and pending in-memory trade offers. Save project files and custom overlay art separately. A backup does not replace persistent storage.
+
+To restore:
+
+1. Download and retain a safety copy of the ZIP.
+2. Stop the bot.
+3. Back up the current database and any `flags.db-wal` / `flags.db-shm` files.
+4. Extract the snapshot's `flags.db` into `DATA_DIR`, replacing the old database while the bot is stopped.
+5. Archive or remove the old WAL/SHM sidecar files so they are not reused with the restored database.
+6. Start the bot; schema migrations run automatically.
+
+Use an all-server snapshot when replacing a multi-server database. Replacing it with a server-only snapshot removes other servers' records. Restore into the persistent volume on a container host.
+
+## Validation
+
+Run focused modifier, price, and flip checks with:
+
+```bash
+python -m unittest test_modifier_prices test_modifiers test_flips -q
+```
+
+These seven checks passed for the current implementation, including Multiply output, preserved alpha, final flip order, overlays adding pixels, ADMIN rarity restrictions, artist credits, stacked sale bonuses, Mass Credit payouts, and duplicate-sale rejection.
+
+The repository also contains older tests. The original uploaded project and the modifier release both reported 10 failures and 15 errors across the pre-existing 59-test discovery suite, including outdated demo names, schema fixtures, and rarity expectations. Those legacy tests are not a clean release gate. Live Discord integration still needs a configured bot and server.
