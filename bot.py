@@ -196,29 +196,33 @@ def roll_flip_modifiers():
 
 
 def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False, modifiers=(), overlay_data=None):
+    def apply_full_overlay(base_image, overlay_path, blend_mode):
+        with Image.open(overlay_path) as overlay:
+            overlay = overlay.convert('RGB').resize(base_image.size, Image.Resampling.BILINEAR)
+        alpha = base_image.getchannel('A')
+        base_rgb = base_image.convert('RGB')
+        if blend_mode == 'multiply':
+            blended = ImageChops.multiply(base_rgb, overlay)
+        elif blend_mode == 'screen':
+            blended = ImageChops.screen(base_rgb, overlay)
+        else:
+            raise ValueError(f'Unsupported blend mode: {blend_mode}')
+        result = blended.convert('RGBA')
+        result.putalpha(alpha)
+        return result
+
     with Image.open(io.BytesIO(data)) as image:
         image = ImageOps.exif_transpose(image)
         if modifiers:
             image = image.convert('RGBA')
         if 'admin' in modifiers:
-            with Image.open(ROOT / 'admin_gradient.png') as gradient:
-                gradient = gradient.convert('RGB').resize(image.size, Image.Resampling.BILINEAR)
-                alpha = image.getchannel('A')
-                image = ImageChops.multiply(image.convert('RGB'), gradient).convert('RGBA')
-                image.putalpha(alpha)
+            image = apply_full_overlay(image, ROOT / 'admin_gradient.png', 'multiply')
+        if 'cloudy' in modifiers:
+            image = apply_full_overlay(image, ROOT / MODIFIERS['cloudy']['image'], 'screen')
         if flip_horizontal:
             image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
         if flip_vertical:
             image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)  # Reflect across X-axis
-        if 'cloudy' in modifiers:
-            with Image.open(ROOT / MODIFIERS['cloudy']['image']) as cloudy:
-                cloudy = cloudy.convert('RGBA')
-                # Cover the full canvas while preserving the overlay's proportions.
-                cloudy = ImageOps.fit(cloudy, image.size, method=Image.Resampling.LANCZOS)
-                base = image.convert('RGBA')
-                screened = ImageChops.screen(base.convert('RGB'), cloudy.convert('RGB')).convert('RGBA')
-                screened.putalpha(base.getchannel('A'))
-                image = Image.composite(screened, base, cloudy.getchannel('A'))
         for key in ('spooky', 'hungry', 'festive'):
             if key in modifiers:
                 with Image.open(io.BytesIO(overlay_data[key])) as overlay:

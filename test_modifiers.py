@@ -24,6 +24,17 @@ class ModifierTests(unittest.IsolatedAsyncioTestCase):
         flipped = Image.open(b.transformed_image_bytes(png(source), True, True, ['admin']))
         self.assertEqual(flipped.tobytes(), ImageOps.flip(ImageOps.mirror(result)).tobytes())
 
+
+    def test_cloudy_uses_screen_and_preserves_alpha(self):
+        source = Image.new('RGBA', (3, 4))
+        source.putdata([(25, 80, 160, a) for a in (0, 64, 128, 255)*3])
+        result = Image.open(b.transformed_image_bytes(png(source), modifiers=['cloudy']))
+        self.assertEqual(result.size, source.size)
+        self.assertEqual(result.getchannel('A').tobytes(), source.getchannel('A').tobytes())
+        with Image.open(b.ROOT/'cloudy.png') as g:
+            expected = ImageChops.screen(source.convert('RGB'), g.convert('RGB').resize(source.size, Image.Resampling.BILINEAR))
+        self.assertEqual(result.convert('RGB').tobytes(), expected.tobytes())
+
     async def test_rigged_restrictions_and_regular_spawns(self):
         interaction=SimpleNamespace(response=SimpleNamespace(send_message=AsyncMock()))
         await b.spawnrigged.callback(interaction, next(iter(b.CATALOG)), 'gold', admin=True)
