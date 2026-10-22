@@ -10,6 +10,8 @@ import sqlite3
 import time
 import json
 import math
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from urllib.parse import urlparse
 from pathlib import Path
 
@@ -47,10 +49,13 @@ ROOT = Path(__file__).resolve().parent
 ADMIN_RARITIES = {'normal', 'holographic', 'glitch', 'inverted'}
 with (ROOT / 'modifiers.json').open(encoding='utf-8') as f:
     MODIFIERS = json.load(f)
-for key in ('tall', 'wide'):
+SEASONAL_WINDOWS = {'spooky': (10, 21, 31), 'hungry': (11, 16, 26), 'festive': (12, 15, 25)}
+MODIFIER_TIMEZONE = ZoneInfo(os.getenv('MODIFIER_TIMEZONE', 'America/New_York'))
+for key in SEASONAL_WINDOWS:
     cfg = MODIFIERS[key]
-    if not isinstance(cfg.get('chance'), (int, float)) or not 0 <= cfg['chance'] <= 1:
-        raise ValueError('Modifier chance must be between 0 and 1.')
+    for orientation in ('TALL', 'WIDE'):
+        if not isinstance(cfg.get(orientation, ''), str):
+            raise ValueError(f'{key}.{orientation} must be an image path or HTTPS URL.')
 SPAWN_MIN_SECONDS = 300
 SPAWN_MAX_SECONDS = 300
 CLAIM_SECONDS = 300
@@ -81,6 +86,9 @@ for item in ITEMS:
     if isinstance(price, bool) or not isinstance(price, int) or price < 0:
         raise ValueError('sell_value must be a nonnegative integer.')
     item['sell_value'] = price
+    item['orientation'] = str(item.get('orientation', '')).upper()
+    if item['orientation'] not in ('', 'TALL', 'WIDE'):
+        raise ValueError('Item orientation must be TALL or WIDE.')
     images = item.get('rarity_images', {})
     if not isinstance(images, dict) or set(images) - set(eco.RARITIES):
         raise ValueError('rarity_images must be an object with known rarity names.')
@@ -141,7 +149,7 @@ def card_modifiers(row):
 
 
 def modifier_names(modifiers):
-    return ["ADMIN" if m == 'admin' else MODIFIERS[m].get('name', m.title()) for m in modifiers]
+    return ["ADMIN" if m == 'admin' else MODIFIERS.get(m, {}).get('name', m.upper()) for m in modifiers]
 
 
 def variant_label(rarity, flip_horizontal=False, flip_vertical=False, modifiers=()):
@@ -164,6 +172,20 @@ def variant_suffix(flip_horizontal=False, flip_vertical=False):
     return f" [{' + '.join(labels)}]" if labels else ''
 
 
+def seasonal_image(item, modifier):
+    orientation = str(item.get('orientation', '')).upper()
+    if orientation not in ('TALL', 'WIDE'):
+        return ''
+    return MODIFIERS[modifier].get(orientation, '')
+
+
+def roll_seasonal_modifiers(item, today=None):
+    today = today or datetime.now(MODIFIER_TIMEZONE).date()
+    return [key for key, (month, start, end) in SEASONAL_WINDOWS.items()
+            if today.month == month and start <= today.day <= end
+            and seasonal_image(item, key) and random.random() < 0.10]
+
+
 def roll_flip_modifiers():
     return random.random() < eco.HORIZONTAL_FLIP_CHANCE, random.random() < eco.VERTICAL_FLIP_CHANCE
 
@@ -179,7 +201,11 @@ def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False, mo
                 alpha = image.getchannel('A')
                 image = ImageChops.multiply(image.convert('RGB'), gradient).convert('RGBA')
                 image.putalpha(alpha)
-        for key in ('tall', 'wide'):
+        if flip_horizontal:
+            image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+        if flip_vertical:
+            image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)  # Reflect across X-axis
+        for key in ('spooky', 'hungry', 'festive'):
             if key in modifiers:
                 with Image.open(io.BytesIO(overlay_data[key])) as overlay:
                     overlay = overlay.convert('RGBA')
@@ -189,10 +215,6 @@ def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False, mo
                     canvas.alpha_composite(image, ((width-image.width)//2, (height-image.height)//2))
                     canvas.alpha_composite(overlay, ((width-overlay.width)//2, (height-overlay.height)//2))
                     image = canvas
-        if flip_horizontal:
-            image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-        if flip_vertical:
-            image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)  # Reflect across X-axis
         output = io.BytesIO()
         image.save(output, format='PNG')
         output.seek(0)
@@ -212,9 +234,11 @@ async def card_image_payload(item, rarity, flip_horizontal=False, flip_vertical=
                 response.raise_for_status()
                 payload = await response.read()
         overlays = {}
-        for key in ('tall', 'wide'):
+        for key in SEASONAL_WINDOWS:
             if key in modifiers:
-                source = MODIFIERS[key]['image']
+                source = seasonal_image(item, key)
+                if not source:
+                    raise ValueError(f'Missing {key} image or TALL/WIDE orientation for this card.')
                 if source.startswith('https://'):
                     async with aiohttp.ClientSession(timeout=timeout) as session:
                         async with session.get(source) as response:
@@ -321,6 +345,14 @@ with db:
     if 'modifiers' not in columns:
         db.execute("ALTER TABLE rigged_spam ADD COLUMN modifiers TEXT NOT NULL DEFAULT '[]'")
 
+with db:
+    for table, identity in (('cards', 'id'), ('spawns', 'guild'), ('auction_listings', 'card_id'), ('rigged_spam', 'guild')):
+        for row in db.execute(f'SELECT {identity},modifiers FROM {table}').fetchall():
+            saved = json.loads(row['modifiers'])
+            cleaned = [key for key in saved if key not in ('tall', 'wide')]
+            if cleaned != saved:
+                db.execute(f'UPDATE {table} SET modifiers=? WHERE {identity}=?', (json.dumps(cleaned), row[identity]))
+
 def spam_active(guild):
     row=db.execute('SELECT until_time FROM spam_periods WHERE guild=?',(guild,)).fetchone()
     return bool(row and row['until_time'] > time.time())
@@ -355,8 +387,7 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizo
             chosen_rarity=rig['rarity']
             if rig['card']:
                 chosen_item=next((item for item in ITEMS if item['id']==rig['card']),None)
-    if modifiers is None:
-        modifiers = [k for k, c in MODIFIERS.items() if c['image'] and random.random() < c['chance']]
+    modifiers = list(modifiers or [])
     if 'admin' in modifiers and chosen_rarity and chosen_rarity not in ADMIN_RARITIES:
         raise ValueError('ADMIN requires normal, holographic, glitch or inverted.')
     pool=bounty_spawn_pool(guild_id,chosen_item,chosen_rarity)
@@ -369,6 +400,7 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizo
     if not pool:
         raise ValueError('No positive spawn weights configured')
     item,rarity,_=random.choices(pool,weights=[pair[2] for pair in pool])[0]
+    modifiers = list(dict.fromkeys(modifiers + roll_seasonal_modifiers(item)))
     rolled_horizontal, rolled_vertical = roll_flip_modifiers()
     flip_horizontal = rolled_horizontal if horizontal_flip is None else horizontal_flip
     flip_vertical = rolled_vertical if vertical_flip is None else vertical_flip
@@ -763,14 +795,14 @@ async def ctake(interaction:discord.Interaction,member:discord.Member,amount:app
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
-async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal',horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,tall:bool=None,wide:bool=None):
+async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal',horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False):
     if admin and rarity is not None and rarity not in ADMIN_RARITIES:
         return await interaction.response.send_message('ADMIN only supports normal, holographic, glitch and inverted.', ephemeral=True)
     modifiers = ['admin'] if admin else []
-    for key, enabled in (('tall', tall), ('wide', wide)):
-        if enabled and not MODIFIERS[key]['image']:
-            return await interaction.response.send_message(f'Configure {key} image in modifiers.json first.', ephemeral=True)
-        if enabled or (enabled is None and MODIFIERS[key]['image'] and random.random() < MODIFIERS[key]['chance']):
+    for key, enabled in (('spooky', spooky), ('hungry', hungry), ('festive', festive)):
+        if enabled:
+            if card not in CATALOG or not seasonal_image(CATALOG[card], key):
+                return await interaction.response.send_message(f'Set this card orientation to TALL or WIDE in items.json and configure the matching {key.upper()} image in modifiers.json.', ephemeral=True)
             modifiers.append(key)
 
     if card not in CATALOG or rarity not in eco.RARITIES:
@@ -1467,15 +1499,11 @@ async def spawnspam(interaction:discord.Interaction):
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.choices(rarity=[app_commands.Choice(name=r.replace('_',' ').title(),value=r) for r in eco.RARITIES])
-async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:str=None,set:str=None,horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,tall:bool=None,wide:bool=None):
+async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:str=None,set:str=None,horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False):
     if admin and rarity is not None and rarity not in ADMIN_RARITIES:
         return await interaction.response.send_message('ADMIN only supports normal, holographic, glitch and inverted.', ephemeral=True)
     modifiers = ['admin'] if admin else []
-    for key, enabled in (('tall', tall), ('wide', wide)):
-        if enabled and not MODIFIERS[key]['image']:
-            return await interaction.response.send_message(f'Configure {key} image in modifiers.json first.', ephemeral=True)
-        if enabled or (enabled is None and MODIFIERS[key]['image'] and random.random() < MODIFIERS[key]['chance']):
-            modifiers.append(key)
+
 
     settings=db.execute('SELECT channel FROM settings WHERE guild=?',(interaction.guild_id,)).fetchone()
     if not settings:

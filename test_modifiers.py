@@ -24,14 +24,6 @@ class ModifierTests(unittest.IsolatedAsyncioTestCase):
         flipped = Image.open(b.transformed_image_bytes(png(source), True, True, ['admin']))
         self.assertEqual(flipped.tobytes(), ImageOps.flip(ImageOps.mirror(result)).tobytes())
 
-    def test_overlay_adds_pixels_and_flips_last(self):
-        source = Image.new('RGBA', (2,2), (255,255,255,0))
-        overlay = Image.new('RGBA',(3,5)); overlay.putpixel((0,0),(255,0,0,255))
-        raw = png(source)
-        result = Image.open(b.transformed_image_bytes(raw, False, True, ['admin','tall'], {'tall':png(overlay)}))
-        self.assertEqual(result.size,(3,5))
-        self.assertEqual(result.getpixel((0,4)),(255,0,0,255))
-
     async def test_rigged_restrictions_and_regular_spawns(self):
         interaction=SimpleNamespace(response=SimpleNamespace(send_message=AsyncMock()))
         await b.spawnrigged.callback(interaction, next(iter(b.CATALOG)), 'gold', admin=True)

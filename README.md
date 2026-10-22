@@ -65,7 +65,7 @@ Locked cards display a lock beside their IDs in collection/search indexing. Favo
 
 `/givecard card_id user` transfers one card to another human player. It checks completion rewards for the recipient and records discovery. It does not give the 100-chudlet trade bonus.
 
-Rarities, flips, ADMIN, and custom overlays stay with the card during transfers. Favourites and featured-profile selections clear when the selected copy changes ownership or is deleted.
+Rarities, flips, ADMIN, and seasonal overlays stay with the card during transfers. Favourites and featured-profile selections clear when the selected copy changes ownership or is deleted.
 
 ## Card rarity unlock rewards
 
@@ -82,7 +82,7 @@ Existing owned cards and auction escrow, saved card-purchase history, and record
 
 Sell locks apply to bulk sales. A locked card can still be sold individually, traded, gifted, or auctioned.
 
-A card's NPC sell value is its configured rarity price, or `sell_value` fallback, plus **1,500 chudlets per modifier**. Horizontal flip, vertical flip, ADMIN, tall overlay, and wide overlay each count separately. Base rarity is not a modifier.
+A card's NPC sell value is its configured rarity price, or `sell_value` fallback, plus **1,500 chudlets per modifier**. Horizontal flip, vertical flip, ADMIN, SPOOKY, HUNGRY, and FESTIVE each count separately. Base rarity is not a modifier.
 
 Example: a base sell value of 150 with ADMIN and both flips sells for 4,650 chudlets before the Mass Credit bonus.
 
@@ -192,28 +192,49 @@ It supports only `normal`, `holographic`, `glitch` (Glitched), and `inverted`. O
 
 The supplied `admin_gradient.png` is stretched to the rarity image and applied at full-opacity Multiply. ADMIN recolours existing pixels and preserves the source image's dimensions and alpha. It adds no opaque pixels outside the original artwork.
 
-### Custom tall and wide overlays
+### Seasonal modifiers and card orientation
 
-Edit `modifiers.json` to customize two independent image-overlay slots:
+Set `"orientation": "TALL"` or `"orientation": "WIDE"` on each card object in `items.json`. The supplied entries have an empty orientation placeholder because their dimensions were not available for classification. Fill these before enabling seasonal artwork. Missing/empty orientation skips random seasonal modifiers and prevents forcing one; the bot never substitutes artwork for the opposite orientation.
+
+There are three seasonal overlay modifiers, all compatible with every base rarity:
+
+- SPOOKY: October 21 through October 31, inclusive, 10% per spawn.
+- HUNGRY: November 16 through November 26, inclusive, 10% per spawn.
+- FESTIVE: December 15 through December 25, inclusive, 10% per spawn.
+
+Windows recur annually in `America/New_York` time. Set `MODIFIER_TIMEZONE` to another IANA timezone if needed. Random rolls apply to ordinary, test, and spam spawns, including rigged spam, only during the matching window. Each requires a configured image for the card's orientation. No random seasonal roll occurs outside its window.
+
+Administrators can force any of the three year-round with `/spawnrigged spooky:True`, `hungry:True`, or `festive:True`. These Boolean options can stack and are not available on `/spawnspamrigged`. Omitted/False seasonal options do not force the modifier; normal in-season random rolls still apply.
+
+Configure two image sources per modifier in `modifiers.json`:
 
 ```json
 {
-  "tall": {"name": "Tall Overlay", "image": "overlays/tall.png", "chance": 0.01},
-  "wide": {"name": "Wide Overlay", "image": "overlays/wide.png", "chance": 0.01}
+  "spooky": {
+    "name": "SPOOKY",
+    "TALL": "overlays/spooky-tall.png",
+    "WIDE": "overlays/spooky-wide.png"
+  },
+  "hungry": {
+    "name": "HUNGRY",
+    "TALL": "overlays/hungry-tall.png",
+    "WIDE": "overlays/hungry-wide.png"
+  },
+  "festive": {
+    "name": "FESTIVE",
+    "TALL": "overlays/festive-tall.png",
+    "WIDE": "overlays/festive-wide.png"
+  }
 }
 ```
 
-Use a local image path relative to the bot directory or a public HTTPS image URL. A transparent PNG is recommended. `chance` ranges from 0 to 1; `0.01` means 1%. The supplied configuration has empty image paths and zero chances until you add artwork.
+Use local paths relative to the bot folder or public HTTPS URLs. Put local assets in `overlays` for the Dockerfile to include them. The supplied sources are empty until you add your own art. Transparent PNGs allow the card to remain visible underneath. Restart after editing assets or configuration.
 
-Both slots can stack with each other, flips, and ADMIN, on any supported base rarity. The names identify configurable slots; they do not automatically filter tall or wide cards by aspect ratio. ADMIN's own four-rarity restriction still applies whenever ADMIN is enabled.
+Artwork selection follows the card's explicit orientation even if a particular rarity image has different dimensions. Overlays are centered at native size; the canvas grows if needed, so these modifiers can add visible pixels. Prepare artwork at the intended card resolution.
 
-Overlay art is centered at native size on a canvas large enough for both the source and overlay. These overlays can add visible pixels and expand the image dimensions. Prepare artwork at the intended card resolution and include transparent margins if needed.
+Layer order: base rarity image, ADMIN Multiply, horizontal/vertical flips, SPOOKY, HUNGRY, FESTIVE. Seasonal art stays upright when the underlying card is flipped. Each seasonal modifier adds 1,500 chudlets to NPC sale value. Saved seasonal modifiers survive claims, transfers, auctions, restarts and backups; the calendar restricts creation, not later viewing.
 
-Use `tall:True` or `wide:True` in rigged commands to force an overlay; a missing image configuration is rejected. `False` prevents that slot. When omitted, configured chances apply. Regular spawns roll independently per card. Rigged spam chooses the tall/wide modifiers when the session is configured and retains that selection throughout the session.
-
-Rendering order is base rarity image, ADMIN Multiply, tall overlay, wide overlay, then horizontal and vertical flips. Modifiers are saved on claims and preserved through gifts, trades, and auctions. `/view` renders the current configured artwork again.
-
-If downloading or transforming art fails, the bot does not substitute an unchanged image for a modified card. It keeps the modifiers and shows an image-unavailable message. Try `/view` again after fixing the image source.
+The former tall/wide modifier slots and command options are removed. Startup removes those obsolete saved modifier keys from cards, spawns, listings, and rigged sessions while retaining the cards and all other modifiers. They no longer add sale bonuses. TALL and WIDE now select seasonal artwork through each card's orientation.
 
 ## Administrator commands
 
@@ -223,9 +244,9 @@ These commands require Administrator permission:
 - `/ctake member amount`: remove chudlets, stopping at zero.
 - `/mcgive member amount`: add Mass Credit.
 - `/mctake member amount`: remove Mass Credit, stopping at zero.
-- `/spawnrigged card [rarity] [horizontal_flip] [vertical_flip] [admin] [tall] [wide]`: spawn a selected card, defaulting to normal rarity. Explicitly selected archived/zero-weight cards can be spawned. An existing active spawn is not replaced.
+- `/spawnrigged card [rarity] [horizontal_flip] [vertical_flip] [admin] [spooky] [hungry] [festive]`: spawn a selected card, defaulting to normal rarity. Explicitly selected archived/zero-weight cards can be spawned. An existing active spawn is not replaced.
 - `/spawnspam`: enable five minutes of random spawns that become eligible immediately after each successful claim. Clears rigged session filters.
-- `/spawnspamrigged [rarity] [card] [set] [horizontal_flip] [vertical_flip] [admin] [tall] [wide]`: enable five minutes of filtered spawn spam. Supplied filters must all match. Cards require positive spawn weight. Re-running it replaces the filters and restarts the five-minute timer.
+- `/spawnspamrigged [rarity] [card] [set] [horizontal_flip] [vertical_flip] [admin]`: enable five minutes of filtered spawn spam. Supplied filters must all match. Cards require positive spawn weight. Re-running it replaces the filters and restarts the five-minute timer.
 - `/backup [scope]`: download a consistent saved-data snapshot.
 
 Example ADMIN spawn:
@@ -250,6 +271,7 @@ A nonempty list of collectible definitions. Keep item IDs stable once cards are 
   "name": "Example Card",
   "image_url": "https://your-host.example/card.png",
   "ARTIST:": "Artist Name",
+  "orientation": "TALL",
   "weight": 10,
   "sell_value": 100,
   "rarity_images": {
@@ -294,7 +316,7 @@ An empty list disables image prompts until you add art. This pool is separate fr
 
 ### Other files
 
-- `modifiers.json`: names, image paths/URLs, and random chances for tall/wide overlays.
+- `modifiers.json`: TALL/WIDE image paths or URLs for SPOOKY, HUNGRY, and FESTIVE. Seasonal chances and dates are defined in bot.py.
 - `admin_gradient.png`: ADMIN Multiply gradient.
 - `overlays/`: local custom overlay assets included by Docker.
 - `economy.py`: base rarity weights, flip chances, art reward shop, saved-data operations, and reward logic.
@@ -328,9 +350,9 @@ Use an all-server snapshot when replacing a multi-server database. Replacing it 
 Run focused modifier, price, and flip checks with:
 
 ```bash
-python -m unittest test_rarity_unlocks test_modifier_prices test_modifiers test_flips -q
+python -m unittest test_seasonal_modifiers test_modifiers test_flips -q
 ```
 
-These eleven checks passed for the current implementation, including Multiply output, preserved alpha, final flip order, overlays adding pixels, ADMIN rarity restrictions, artist credits, stacked sale bonuses, Mass Credit payouts, duplicate-sale rejection, per-card/rarity unlock rewards, purchase retries, transfer rewards, and migration seeding.
+Nine focused checks passed for seasonal date boundaries and 10% rolls, orientation selection, final layer order, stacking, year-round rigged overrides, ADMIN rendering, artist credits and flips.
 
 The repository also contains older tests. The original uploaded project and the modifier release both reported 10 failures and 15 errors across the pre-existing 59-test discovery suite, including outdated demo names, schema fixtures, and rarity expectations. Those legacy tests are not a clean release gate. Live Discord integration still needs a configured bot and server.

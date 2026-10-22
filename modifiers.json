@@ -1,12 +1,17 @@
 {
-  "tall": {
-    "name": "Tall Overlay",
-    "image": "",
-    "chance": 0.0
+  "spooky": {
+    "name": "SPOOKY",
+    "TALL": "",
+    "WIDE": ""
   },
-  "wide": {
-    "name": "Wide Overlay",
-    "image": "",
-    "chance": 0.0
+  "hungry": {
+    "name": "HUNGRY",
+    "TALL": "",
+    "WIDE": ""
+  },
+  "festive": {
+    "name": "FESTIVE",
+    "TALL": "",
+    "WIDE": ""
   }
 }

@@ -1,1 +1,1 @@
-Place your tall and wide transparent PNG overlays here. Configure paths in modifiers.json.
+See README.md for setup and seasonal modifier configuration.
