@@ -639,6 +639,51 @@
     "ARTIST:": "PURPLESTAFFIE",
     "orientation": "TALL"
   },
+
+  {
+    "id": "Deli9",
+    "name": “Green Delicious Variant 9",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1136_20261022053643.png",
+    "weight": 10,
+ "sets": [
+      "Deli"
+    ],
+
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1136_20261022053643.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022053825.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022053829.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022053832.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022053835.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022053838.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022053842.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022053845.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022053848.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022053818.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/dv91",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261022053803.png"
+    },
+ "ARTIST:": "JSIMS",
+    "orientation": "TALL"
+  },
+
+
+
   {
     "id": "Gamble",
     "name": "Gamble",
