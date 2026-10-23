@@ -27,5 +27,12 @@
   "hyper": {
     "name": "HYPER",
     "chance": 0.02
+  },
+  "blood_moon": {
+    "name": "BLOOD MOON",
+    "image": "blood_moon.png",
+    "blend": "multiply",
+    "chance": 0.01,
+    "halloween_chance": 0.2
   }
 }

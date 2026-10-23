@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS cards(id INTEGER PRIMARY KEY AUTOINCREMENT, guild INT
 eco.migrate(db)
 with db:
     db.execute('CREATE TABLE IF NOT EXISTS claim_turns(guild INTEGER PRIMARY KEY, owner INTEGER NOT NULL)')
+    db.execute('CREATE TABLE IF NOT EXISTS chain_streaks(guild INTEGER PRIMARY KEY, owner INTEGER NOT NULL, set_id TEXT NOT NULL, streak INTEGER NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS bounties(guild INTEGER, owner INTEGER, card TEXT, rarity TEXT, PRIMARY KEY(guild,owner))')
 with db:
     if not db.execute("SELECT 1 FROM metadata WHERE key='five_minute_schedule'").fetchone():
@@ -52,6 +53,11 @@ with (ROOT / 'modifiers.json').open(encoding='utf-8') as f:
 CLOUDY_CHANCE = 0.02
 BOUNCY_CHANCE = 0.02
 HYPER_CHANCE = 0.02
+BLOOD_MOON_CHANCE = 0.01
+BLOOD_MOON_HALLOWEEN_CHANCE = 0.20
+CHAIN_CHUDLETS_PER_EXTRA_CARD = 100
+CHAIN_RARITY_STEP = 0.15  # 15% more weight per chain level for rarities above normal
+CHAIN_RARITY_CAP = 3.0
 SEASONAL_WINDOWS = {'spooky': (10, 21, 31), 'hungry': (11, 16, 26), 'festive': (12, 15, 25)}
 MODIFIER_TIMEZONE = ZoneInfo(os.getenv('MODIFIER_TIMEZONE', 'America/New_York'))
 for key in SEASONAL_WINDOWS:
@@ -221,6 +227,8 @@ def transformed_image_bytes(data, flip_horizontal=False, flip_vertical=False, mo
             image = apply_full_overlay(image, ROOT / 'admin_gradient.png', 'multiply')
         if 'cloudy' in modifiers:
             image = apply_full_overlay(image, ROOT / MODIFIERS['cloudy']['image'], 'screen')
+        if 'blood_moon' in modifiers:
+            image = apply_full_overlay(image, ROOT / MODIFIERS['blood_moon']['image'], 'multiply')
         if flip_horizontal:
             image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
         if flip_vertical:
@@ -367,10 +375,12 @@ async def on_message(message):
                          (message.guild.id, message.channel.id, time.time())).fetchone()
         if not row or message.id <= row['message']:
             return
-        last_claim = db.execute('SELECT owner FROM claim_turns WHERE guild=?', (message.guild.id,)).fetchone()
-        if last_claim and last_claim['owner'] == message.author.id:
-            await message.channel.send("Users can't claim two cards in a row!")
-            return
+        prior_chain = db.execute('SELECT * FROM chain_streaks WHERE guild=?', (message.guild.id,)).fetchone()
+        matching_sets = sorted(key for key, entry in eco.SET_DEFINITIONS.items() if row['country'] in entry['members'])
+        continuing = bool(prior_chain and prior_chain['owner'] == message.author.id and prior_chain['set_id'] in matching_sets)
+        chain_set = prior_chain['set_id'] if continuing else (matching_sets[0] if matching_sets else None)
+        streak = prior_chain['streak'] + 1 if continuing else (1 if chain_set else 0)
+        chain_bonus = (streak - 1) * CHAIN_CHUDLETS_PER_EXTRA_CARD if streak else 0
         with db:
             claimed = db.execute('DELETE FROM spawns WHERE guild=? AND message=?',
                                  (message.guild.id, row['message'])).rowcount
@@ -378,6 +388,13 @@ async def on_message(message):
                 return
             card_id, earned = eco.award_claim(db, message.guild.id, message.author.id, row['country'], row['rarity'], row['flip_horizontal'], row['flip_vertical'])
             db.execute('UPDATE cards SET modifiers=? WHERE id=?', (row['modifiers'], card_id))
+            if chain_bonus:
+                eco.credit(db, message.guild.id, message.author.id, chain_bonus)
+                earned += chain_bonus
+            if chain_set:
+                db.execute('INSERT INTO chain_streaks VALUES(?,?,?,?) ON CONFLICT(guild) DO UPDATE SET owner=excluded.owner,set_id=excluded.set_id,streak=excluded.streak', (message.guild.id, message.author.id, chain_set, streak))
+            else:
+                db.execute('DELETE FROM chain_streaks WHERE guild=?', (message.guild.id,))
             db.execute('DELETE FROM bounties WHERE guild=? AND owner=? AND card=? AND rarity=?', (message.guild.id,message.author.id,row['country'],row['rarity']))
             db.execute('INSERT INTO claim_turns VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET owner=excluded.owner', (message.guild.id, message.author.id))
     item = item_info(row['country'])
@@ -387,7 +404,7 @@ async def on_message(message):
     # Ownership is committed before any Discord API calls.
     try:
         fh, fv = flip_flags(row)
-        await message.channel.send(f"{discord.utils.escape_markdown(message.author.display_name)} claimed **{discord.utils.escape_markdown(item['name'])} ({variant_label(row['rarity'], fh, fv, card_modifiers(row))})**! Card #{card_id}. +{earned} chudlets.")
+        await message.channel.send(f"{discord.utils.escape_markdown(message.author.display_name)} claimed **{discord.utils.escape_markdown(item['name'])} ({variant_label(row['rarity'], fh, fv, card_modifiers(row))})**! Card #{card_id}. +{earned} chudlets." + (f" Chain x{streak} ({eco.SET_DEFINITIONS[chain_set]['name']}); +{chain_bonus} bonus." if chain_bonus else (f" Chain x1 ({eco.SET_DEFINITIONS[chain_set]['name']})." if chain_set else "")))
         original = await message.channel.fetch_message(row['message'])
         embed = discord.Embed(title=item['name'], description=f"{variant_label(row['rarity'], fh, fv, card_modifiers(row))} · Claimed! Card #{card_id}.", color=0x79B86D)
         attachment = await set_card_embed_image(embed, item, row['rarity'], fh, fv, filename=f'claim-{card_id}.png', modifiers=card_modifiers(row))
@@ -469,8 +486,16 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizo
         pool = [pair for pair in pool if all(seasonal_image(pair[0], key) for key in forced_seasonal)]
     if not pool:
         raise ValueError('No positive spawn weights configured')
-    item,rarity,_=random.choices(pool,weights=[pair[2] for pair in pool])[0]
+    chain = db.execute('SELECT streak FROM chain_streaks WHERE guild=?', (guild_id,)).fetchone()
+    chain_level = max(0, chain['streak'] - 1) if chain else 0
+    rarity_multiplier = min(CHAIN_RARITY_CAP, 1 + chain_level * CHAIN_RARITY_STEP)
+    weights = [pair[2] * (rarity_multiplier if pair[1] != 'normal' and chosen_rarity is None else 1) for pair in pool]
+    item,rarity,_=random.choices(pool,weights=weights)[0]
     modifiers = list(dict.fromkeys(modifiers + roll_seasonal_modifiers(item)))
+    now = datetime.now(MODIFIER_TIMEZONE).date()
+    moon_chance = BLOOD_MOON_HALLOWEEN_CHANCE if (now.month, now.day) == (10, 31) else BLOOD_MOON_CHANCE
+    if 'blood_moon' not in modifiers and random.random() < moon_chance:
+        modifiers.append('blood_moon')
     if 'cloudy' not in modifiers and roll_cloudy_modifier(rarity):
         modifiers.append('cloudy')
     if 'bouncy' not in modifiers and random.random() < BOUNCY_CHANCE:
@@ -1000,7 +1025,7 @@ async def ctake(interaction:discord.Interaction,member:discord.Member,amount:app
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.choices(rarity=[app_commands.Choice(name=r.title(),value=r) for r in eco.RARITIES])
-async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal',horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False,cloudy:bool=False,bouncy:bool=False,hyper:bool=False):
+async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='normal',horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False,cloudy:bool=False,bouncy:bool=False,hyper:bool=False,blood_moon:bool=False):
     if (admin or cloudy) and rarity is not None and rarity not in ADMIN_RARITIES:
         return await interaction.response.send_message('ADMIN only supports normal, holographic, glitch and inverted. CLOUDY uses the same rarities.', ephemeral=True)
     modifiers = ['admin'] if admin else []
@@ -1010,6 +1035,8 @@ async def spawnrigged(interaction:discord.Interaction,card:str,rarity:str='norma
         modifiers.append('bouncy')
     if hyper:
         modifiers.append('hyper')
+    if blood_moon:
+        modifiers.append('blood_moon')
     for key, enabled in (('spooky', spooky), ('hungry', hungry), ('festive', festive)):
         if enabled:
             if card not in CATALOG or not seasonal_image(CATALOG[card], key):
@@ -1407,7 +1434,7 @@ async def bountyset(interaction:discord.Interaction,card:str,rarity:str):
     with db:
         db.execute('INSERT INTO bounties VALUES(?,?,?,?) ON CONFLICT(guild,owner) DO UPDATE SET card=excluded.card,rarity=excluded.rarity',
                    (interaction.guild_id,interaction.user.id,card,rarity))
-    await interaction.response.send_message(f"Bounty set: **{discord.utils.escape_markdown(item_info(card)['name'])} ({rarity.replace('_',' ').title()})**. This exact combination gets 50% more spawn weight in this server. I’ll ping you when it appears, and it will last 10 minutes. This replaces your previous bounty and clears when you claim the target. Other players can still claim it; the consecutive-claim rule still applies.",ephemeral=False)
+    await interaction.response.send_message(f"Bounty set: **{discord.utils.escape_markdown(item_info(card)['name'])} ({rarity.replace('_',' ').title()})**. This exact combination gets 50% more spawn weight in this server. I’ll ping you when it appears, and it will last 10 minutes. This replaces your previous bounty and clears when you claim the target. Other players can still claim it.",ephemeral=False)
 
 
 @bountyset.autocomplete('card')
@@ -1696,6 +1723,54 @@ class AuctionSelect(discord.ui.View):
             await interaction.response.send_message(f"Card #{card_id}: {item_info(row['item'])['name']} ({variant_label(row['rarity'], bool(row['flip_horizontal']), bool(row['flip_vertical']), card_modifiers(row))}) · {row['price']:,} chudlets",view=AuctionBuy(dict(row)),ephemeral=True)
         select.callback=selected;self.add_item(select)
 
+
+
+@bot.tree.command(name='paidspawn', description='Spend 1,000 chudlets to spawn a random card.')
+@app_commands.guild_only()
+async def paidspawn(interaction: discord.Interaction):
+    settings = db.execute('SELECT channel FROM settings WHERE guild=?', (interaction.guild_id,)).fetchone()
+    if not settings:
+        return await interaction.response.send_message('Run /setup first.', ephemeral=True)
+    await interaction.response.defer(ephemeral=True)
+    async with spawn_lock:
+        if db.execute('SELECT 1 FROM spawns WHERE guild=? AND expires>?', (interaction.guild_id, time.time())).fetchone():
+            return await interaction.followup.send('A card is already waiting to be claimed. No charge.', ephemeral=True)
+        with db:
+            charged = db.execute('UPDATE wallets SET amount=amount-1000 WHERE guild=? AND owner=? AND amount>=1000', (interaction.guild_id,interaction.user.id)).rowcount
+        if not charged:
+            return await interaction.followup.send('You need 1,000 chudlets.', ephemeral=True)
+        try:
+            channel = bot.get_channel(settings['channel']) or await bot.fetch_channel(settings['channel'])
+            success = await _spawn(interaction.guild_id, channel)
+            if not success:
+                with db: eco.credit(db, interaction.guild_id, interaction.user.id, 1000)
+                return await interaction.followup.send('A spawn is already active. Refunded 1,000 chudlets.', ephemeral=True)
+        except Exception:
+            with db: eco.credit(db, interaction.guild_id, interaction.user.id, 1000)
+            logging.exception('Paid spawn failed and was refunded')
+            return await interaction.followup.send('Spawn failed. Refunded 1,000 chudlets.', ephemeral=True)
+    await interaction.followup.send('Spent 1,000 chudlets. A random card has spawned.', ephemeral=True)
+
+
+@bot.tree.command(name='paidspawnspam', description='Spend 10,000 chudlets for five minutes of spawnspam.')
+@app_commands.guild_only()
+async def paidspawnspam(interaction: discord.Interaction):
+    settings = db.execute('SELECT channel FROM settings WHERE guild=?', (interaction.guild_id,)).fetchone()
+    if not settings:
+        return await interaction.response.send_message('Run /setup first.', ephemeral=True)
+    async with spawn_lock:
+        with db:
+            charged = db.execute('UPDATE wallets SET amount=amount-10000 WHERE guild=? AND owner=? AND amount>=10000', (interaction.guild_id,interaction.user.id)).rowcount
+            if charged:
+                until = max(time.time(), (db.execute('SELECT until_time FROM spam_periods WHERE guild=?', (interaction.guild_id,)).fetchone() or {'until_time': 0})['until_time']) + 300
+                db.execute('INSERT INTO spam_periods VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET until_time=excluded.until_time', (interaction.guild_id,until))
+                db.execute('DELETE FROM rigged_spam WHERE guild=?', (interaction.guild_id,))
+                if not db.execute('SELECT 1 FROM spawns WHERE guild=? AND expires>?', (interaction.guild_id,time.time())).fetchone():
+                    db.execute('UPDATE settings SET next_spawn=? WHERE guild=?', (time.time(),interaction.guild_id))
+    if not charged:
+        return await interaction.response.send_message('You need 10,000 chudlets.', ephemeral=True)
+    await interaction.response.send_message('Spent 10,000 chudlets. Five minutes of spawnspam added; the next card spawns after the current card is claimed.', ephemeral=False)
+
 @bot.tree.command(name='spawnspam',description='Administrator: continuously spawn on claim for five minutes.')
 @app_commands.guild_only()
 @app_commands.default_permissions(administrator=True)
@@ -1715,10 +1790,10 @@ async def spawnspam(interaction:discord.Interaction):
 @app_commands.default_permissions(administrator=True)
 @app_commands.checks.has_permissions(administrator=True)
 @app_commands.choices(rarity=[app_commands.Choice(name=r.replace('_',' ').title(),value=r) for r in eco.RARITIES])
-async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:str=None,set:str=None,horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,cloudy:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False,bouncy:bool=False,hyper:bool=False):
+async def spawnspamrigged(interaction:discord.Interaction,rarity:str=None,card:str=None,set:str=None,horizontal_flip:bool=None,vertical_flip:bool=None,admin:bool=False,cloudy:bool=False,spooky:bool=False,hungry:bool=False,festive:bool=False,bouncy:bool=False,hyper:bool=False,blood_moon:bool=False):
     if (admin or cloudy) and rarity is not None and rarity not in ADMIN_RARITIES:
         return await interaction.response.send_message('ADMIN only supports normal, holographic, glitch and inverted.', ephemeral=True)
-    modifiers = (['admin'] if admin else []) + (['cloudy'] if cloudy else []) + (['bouncy'] if bouncy else []) + (['hyper'] if hyper else [])
+    modifiers = (['admin'] if admin else []) + (['cloudy'] if cloudy else []) + (['bouncy'] if bouncy else []) + (['hyper'] if hyper else []) + (['blood_moon'] if blood_moon else [])
     modifiers += [key for key, enabled in (('spooky', spooky), ('hungry', hungry), ('festive', festive)) if enabled]
 
     settings=db.execute('SELECT channel FROM settings WHERE guild=?',(interaction.guild_id,)).fetchone()

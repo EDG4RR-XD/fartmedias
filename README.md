@@ -29,7 +29,7 @@ Use a separate bot token, test server, and data directory for development. Schem
 
 Type `Claim` in the spawn's channel to collect it. One spawn can be active per server. The normal schedule uses five-minute intervals, and ordinary spawns remain claimable for five minutes. The background loop checks about every five seconds, so timing is approximate. Claims during spawn spam make the next spawn eligible on the next loop pass.
 
-The same player cannot successfully claim two cards in a row in the same server. Another player's successful claim unlocks their next claim. Failed claims, sales, trades, and expiry do not reset this rule. The last claimant survives restarts.
+Players can claim any number of cards consecutively in the same server. Chaining bonuses apply when successive claims match the same configured set.
 
 Claim rewards:
 
@@ -402,3 +402,11 @@ the entire owned collection. Sorting applies before pagination in `/collection`,
 when another user views your collection. It changes display order only.
 
 Restart the bot to apply database migrations and synchronize slash commands.
+
+## Chaining, paid spawns and BLOOD MOON
+
+- Consecutive claims by the same user from the same configured set build a server-wide chain. The first claim starts at x1. The second earns an additional 100 chudlets, the third 200, and so on. Other users' claims start their own chains. Cards outside a configured set reset the chain. Consecutive claims by the same user are permitted when they continue their set chain.
+- Each chain level after x1 increases the weight of rarities above normal by 15%, capped at 3x their original weight. These boosted odds apply to the following random spawn in that server, and do not override forced rarities. Chain streaks survive bot restarts.
+- `/paidspawn`: 1,000 chudlets for one random card in the configured spawn channel. The command refuses to charge if a card is already active and refunds failures.
+- `/paidspawnspam`: 10,000 chudlets for five minutes of spawnspam. Buying during an existing session extends its end by five minutes; it resets rigged spam to random spawning.
+- BLOOD MOON: 1% roll on every spawn, increased to 20% on October 31 in `MODIFIER_TIMEZONE` (defaults to America/New_York). Uses the bundled `blood_moon.png` via a full-card multiply blend. Stacks with other modifiers and flips. Administrators can force it with `blood_moon:true` in `/spawnrigged` or `/spawnspamrigged`.
