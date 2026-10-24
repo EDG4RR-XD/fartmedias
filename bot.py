@@ -38,7 +38,14 @@ CREATE TABLE IF NOT EXISTS cards(id INTEGER PRIMARY KEY AUTOINCREMENT, guild INT
 eco.migrate(db)
 with db:
     db.execute('CREATE TABLE IF NOT EXISTS claim_turns(guild INTEGER PRIMARY KEY, owner INTEGER NOT NULL)')
-    db.execute('CREATE TABLE IF NOT EXISTS chain_streaks(guild INTEGER PRIMARY KEY, owner INTEGER NOT NULL, set_id TEXT NOT NULL, streak INTEGER NOT NULL)')
+    db.execute('CREATE TABLE IF NOT EXISTS chain_streaks(guild INTEGER, owner INTEGER NOT NULL, set_id TEXT NOT NULL, streak INTEGER NOT NULL, PRIMARY KEY(guild,owner))')
+    # Preserve the existing server streak when upgrading to per-player chains.
+    chain_pk = [row['name'] for row in db.execute('PRAGMA table_info(chain_streaks)') if row['pk']]
+    if chain_pk == ['guild']:
+        db.execute('ALTER TABLE chain_streaks RENAME TO chain_streaks_legacy')
+        db.execute('CREATE TABLE chain_streaks(guild INTEGER, owner INTEGER NOT NULL, set_id TEXT NOT NULL, streak INTEGER NOT NULL, PRIMARY KEY(guild,owner))')
+        db.execute('INSERT INTO chain_streaks SELECT guild,owner,set_id,streak FROM chain_streaks_legacy')
+        db.execute('DROP TABLE chain_streaks_legacy')
     db.execute('CREATE TABLE IF NOT EXISTS bounties(guild INTEGER, owner INTEGER, card TEXT, rarity TEXT, PRIMARY KEY(guild,owner))')
 with db:
     if not db.execute("SELECT 1 FROM metadata WHERE key='five_minute_schedule'").fetchone():
@@ -375,7 +382,7 @@ async def on_message(message):
                          (message.guild.id, message.channel.id, time.time())).fetchone()
         if not row or message.id <= row['message']:
             return
-        prior_chain = db.execute('SELECT * FROM chain_streaks WHERE guild=?', (message.guild.id,)).fetchone()
+        prior_chain = db.execute('SELECT * FROM chain_streaks WHERE guild=? AND owner=?', (message.guild.id, message.author.id)).fetchone()
         matching_sets = sorted(key for key, entry in eco.SET_DEFINITIONS.items() if row['country'] in entry['members'])
         continuing = bool(prior_chain and prior_chain['owner'] == message.author.id and prior_chain['set_id'] in matching_sets)
         chain_set = prior_chain['set_id'] if continuing else (matching_sets[0] if matching_sets else None)
@@ -392,9 +399,9 @@ async def on_message(message):
                 eco.credit(db, message.guild.id, message.author.id, chain_bonus)
                 earned += chain_bonus
             if chain_set:
-                db.execute('INSERT INTO chain_streaks VALUES(?,?,?,?) ON CONFLICT(guild) DO UPDATE SET owner=excluded.owner,set_id=excluded.set_id,streak=excluded.streak', (message.guild.id, message.author.id, chain_set, streak))
+                db.execute('INSERT INTO chain_streaks VALUES(?,?,?,?) ON CONFLICT(guild,owner) DO UPDATE SET set_id=excluded.set_id,streak=excluded.streak', (message.guild.id, message.author.id, chain_set, streak))
             else:
-                db.execute('DELETE FROM chain_streaks WHERE guild=?', (message.guild.id,))
+                db.execute('DELETE FROM chain_streaks WHERE guild=? AND owner=?', (message.guild.id, message.author.id))
             db.execute('DELETE FROM bounties WHERE guild=? AND owner=? AND card=? AND rarity=?', (message.guild.id,message.author.id,row['country'],row['rarity']))
             db.execute('INSERT INTO claim_turns VALUES(?,?) ON CONFLICT(guild) DO UPDATE SET owner=excluded.owner', (message.guild.id, message.author.id))
     item = item_info(row['country'])
@@ -486,7 +493,7 @@ async def _spawn(guild_id, channel, chosen_item=None, chosen_rarity=None, horizo
         pool = [pair for pair in pool if all(seasonal_image(pair[0], key) for key in forced_seasonal)]
     if not pool:
         raise ValueError('No positive spawn weights configured')
-    chain = db.execute('SELECT streak FROM chain_streaks WHERE guild=?', (guild_id,)).fetchone()
+    chain = db.execute('SELECT c.streak FROM chain_streaks c JOIN claim_turns t ON t.guild=c.guild AND t.owner=c.owner WHERE c.guild=?', (guild_id,)).fetchone()
     chain_level = max(0, chain['streak'] - 1) if chain else 0
     rarity_multiplier = min(CHAIN_RARITY_CAP, 1 + chain_level * CHAIN_RARITY_STEP)
     weights = [pair[2] * (rarity_multiplier if pair[1] != 'normal' and chosen_rarity is None else 1) for pair in pool]

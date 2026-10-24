@@ -405,8 +405,8 @@ Restart the bot to apply database migrations and synchronize slash commands.
 
 ## Chaining, paid spawns and BLOOD MOON
 
-- Consecutive claims by the same user from the same configured set build a server-wide chain. The first claim starts at x1. The second earns an additional 100 chudlets, the third 200, and so on. Other users' claims start their own chains. Cards outside a configured set reset the chain. Consecutive claims by the same user are permitted when they continue their set chain.
-- Each chain level after x1 increases the weight of rarities above normal by 15%, capped at 3x their original weight. These boosted odds apply to the following random spawn in that server, and do not override forced rarities. Chain streaks survive bot restarts.
+- Each user builds their own chain by claiming cards from the same configured set in a server. Intervening spawns, expired cards, and other users’ claims do not reset it. The first claim starts at x1. The second earns an additional 100 chudlets, the third 200, and so on. Claiming a different set starts a new chain; claiming a card outside any configured set resets only that user’s chain. Consecutive claims by the same user are permitted when they continue their set chain.
+- Each chain level after x1 increases the weight of rarities above normal by 15%, capped at 3x their original weight. The most recent claimant’s chain boosts the following random spawns in that server, and do not override forced rarities. Chain streaks survive bot restarts.
 - `/paidspawn`: 1,000 chudlets for one random card in the configured spawn channel. The command refuses to charge if a card is already active and refunds failures.
 - `/paidspawnspam`: 10,000 chudlets for five minutes of spawnspam. Buying during an existing session extends its end by five minutes; it resets rigged spam to random spawning.
 - BLOOD MOON: 1% roll on every spawn, increased to 20% on October 31 in `MODIFIER_TIMEZONE` (defaults to America/New_York). Uses the bundled `blood_moon.png` via a full-card multiply blend. Stacks with other modifiers and flips. Administrators can force it with `blood_moon:true` in `/spawnrigged` or `/spawnspamrigged`.
