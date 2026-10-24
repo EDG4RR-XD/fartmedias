@@ -2024,7 +2024,95 @@
     },
  "ARTIST:": "HOLYGATES",
     "orientation": "TALL"
+  },
+
+  {
+    "id": "Solitare7",
+    "name": "Solitare Variant 7",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/soli1",
+    "weight": 10,
+ "sets": [
+      "Solitare"
+    ],
+
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/soli1",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222125.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222130.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222133.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222136.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222139.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222142.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222145.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222150.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222116.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222054.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222354.png"
+    },
+ "ARTIST:": "JSIMS",
+    "orientation": "WIDE"
+  },
+
+
+{
+    "id": "Solitare8",
+    "name": "Solitare Variant 8",
+    "image_url": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222049.png",
+    "weight": 10,
+ "sets": [
+      "Solitare"
+    ],
+
+    "sell_value": 50,
+    "rarity_sell_values": {
+        "normal": 50,
+      "silver": 100,
+      "gold": 200,
+      "emerald": 300,
+      "diamond": 400,
+      "obsidian": 500,
+      "copper": 600,
+      "ruby": 700,
+      "sapphire": 800,
+      "holographic": 1000,
+      "inverted": 1500,
+       "glitch": 2000
+    },
+    "rarity_images": {
+      "normal": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222209.png",
+      "silver": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222209.png",
+      "gold": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222213.png",
+      "emerald": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222217.png",
+      "diamond": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222221.png",
+      "obsidian": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222224.png",
+         "copper": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222227.png",
+      "ruby": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222230.png",
+      "sapphire": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222234.png",
+      "holographic": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222202.png",
+      "inverted": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222059.png",
+      "glitch": "https://file.garden/ZjgOFU74SkXuNmJS/Untitled1092_20261023222403.png"
+    },
+ "ARTIST:": "JSIMS",
+    "orientation": "TALL"
   }
+
+
+
 
   
 ]
